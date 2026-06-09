@@ -40,14 +40,15 @@
     <span id="iv-audited" class="light" data-at="{{ auditedAt ?: '' }}"></span>
 </div>
 
-<div id="iv-warm-active" class="iv-warm-active"></div>
-
-<form id="iv-warm-stop" method="post" accept-charset="UTF-8" class="hidden">
-    {{ csrfInput() }}
-    {{ actionInput('image-variants/warm/stop') }}
-    {{ redirectInput('utilities/image-variants-warm') }}
-    <button type="submit" class="btn caution">{{ 'Stop warming'|t('image-variants') }}</button>
-</form>
+<div class="iv-active-wrap">
+    <div id="iv-warm-active" class="iv-warm-active"></div>
+    <form id="iv-warm-stop" method="post" accept-charset="UTF-8" class="hidden">
+        {{ csrfInput() }}
+        {{ actionInput('image-variants/warm/stop') }}
+        {{ redirectInput('utilities/image-variants-warm') }}
+        <button type="submit" class="btn caution small">{{ 'Stop'|t('image-variants') }}</button>
+    </form>
+</div>
 
 <table class="data fullwidth">
     <thead>
@@ -79,8 +80,11 @@
 {% css %}
 .iv-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
 .iv-inline { display: inline-block; }
-.iv-warm-active { margin: 0 0 14px; }
+.iv-active-wrap { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
+.iv-warm-active { flex: 1 1 auto; margin: 0; }
 .iv-warm-row { margin: 0 0 10px; }
+.iv-warm-row:last-child { margin-bottom: 0; }
+#iv-warm-stop { flex: 0 0 auto; }
 .iv-warm-bar { height: 6px; border-radius: 3px; background: #e3e5e8; overflow: hidden; margin-top: 4px; }
 .iv-warm-bar-fill { height: 100%; background: #3f7fff; transition: width .4s ease; }
 .iv-cov-ok { color: #127f48; font-weight: 500; }
