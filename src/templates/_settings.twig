@@ -1,0 +1,30 @@
+{% import "_includes/forms" as forms %}
+
+{% set matrices = settings.matrices %}
+{% set assignments = settings.fieldAssignments %}
+
+<div class="readable">
+    <blockquote class="note">
+        <strong>Phase 1 — skeleton.</strong> Editing UI for matrices and field
+        assignments arrives in later phases. The values below are seeded from the
+        previous <code>config/imageprofiles.php</code> and are stored in Project Config.
+    </blockquote>
+
+    <h2>Variant matrices ({{ matrices | length }})</h2>
+    <ul>
+        {% for handle, matrix in matrices %}
+            <li>
+                <code>{{ handle }}</code> —
+                {{ matrix.variants | length }} variants,
+                sizes <code>{{ matrix.sizes }}</code>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <h2>Field assignments ({{ assignments | length }})</h2>
+    <ul>
+        {% for field, keys in assignments %}
+            <li><code>{{ field }}</code> &rarr; {{ keys | join(', ') }}</li>
+        {% endfor %}
+    </ul>
+</div>

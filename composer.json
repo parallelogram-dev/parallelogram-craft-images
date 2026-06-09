@@ -1,0 +1,21 @@
+{
+  "name": "parallelogram-dev/parallelogram-image-variants",
+  "description": "Parallelogram Image Variants — define, generate, and serve responsive image variants as pre-warmed static paths.",
+  "version": "0.1.0",
+  "type": "craft-plugin",
+  "license": "proprietary",
+  "require": {
+    "craftcms/cms": "^5.0.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "parallelogram\\imagevariants\\": "src/"
+    }
+  },
+  "extra": {
+    "handle": "image-variants",
+    "name": "Parallelogram Image Variants",
+    "developer": "Parallelogram",
+    "class": "parallelogram\\imagevariants\\Plugin"
+  }
+}
