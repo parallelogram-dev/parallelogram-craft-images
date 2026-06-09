@@ -7,6 +7,7 @@ use craft\base\Element;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
 use craft\elements\Asset;
+use craft\events\DefineMenuItemsEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterElementActionsEvent;
 use craft\fields\Assets;
@@ -76,6 +77,12 @@ class Plugin extends BasePlugin
         );
 
         Event::on(
+            Asset::class,
+            Element::EVENT_DEFINE_ACTION_MENU_ITEMS,
+            [$this, 'handleAssetActionMenuItems']
+        );
+
+        Event::on(
             Elements::class,
             Elements::EVENT_AFTER_SAVE_ELEMENT,
             [AssetEvents::class, 'handleElementSave']
@@ -96,6 +103,60 @@ class Plugin extends BasePlugin
                 $variable->set('imageVariants', VariantsVariable::class);
             }
         );
+    }
+
+    /**
+     * Add a "Rebuild image variants" item to the asset edit screen's action
+     * menu. For an image with assigned matrices it is live and queues a
+     * single-asset RebuildJob; for an image with none it is shown greyed-out
+     * (so the feature stays discoverable) with the reason. Non-images, and users
+     * who cannot save the asset, get nothing.
+     */
+    public function handleAssetActionMenuItems(DefineMenuItemsEvent $event): void
+    {
+        $asset = $event->sender;
+
+        if (!$asset instanceof Asset || $asset->kind !== Asset::KIND_IMAGE || !$asset->id || $asset->getIsRevision()) {
+            return;
+        }
+
+        if (!Craft::$app->getUser()->checkPermission('saveAssets:' . $asset->getVolume()->uid)) {
+            return;
+        }
+
+        $id = sprintf('iv-rebuild-%s', mt_rand());
+        $label = Craft::t('image-variants', 'Rebuild image variants');
+
+        if ($this->warmer->matrixHandlesForAsset($asset) === []) {
+            $event->items[] = [
+                'id' => $id,
+                'icon' => 'arrows-rotate',
+                'label' => $label,
+                'description' => Craft::t('image-variants', 'Not used in a field with image variants.'),
+                'disabled' => true,
+                'attributes' => ['disabled' => true],
+            ];
+
+            return;
+        }
+
+        $event->items[] = [
+            'id' => $id,
+            'icon' => 'arrows-rotate',
+            'label' => $label,
+        ];
+
+        $view = Craft::$app->getView();
+        $view->registerJsWithVars(fn($id, $assetId) => <<<JS
+$('#' + $id).on('activate', () => {
+  Craft.sendActionRequest('POST', 'image-variants/rebuild/queue', { data: { assetId: $assetId } })
+    .then((response) => Craft.cp.displayNotice(response.data.message))
+    .catch((e) => Craft.cp.displayError(e?.response?.data?.message));
+});
+JS, [
+            $view->namespaceInputId($id),
+            $asset->id,
+        ]);
     }
 
     protected function createSettingsModel(): ?Model
