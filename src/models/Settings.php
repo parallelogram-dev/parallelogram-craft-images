@@ -33,6 +33,12 @@ class Settings extends Model
     ];
 
     /**
+     * ImageMagick threads each encode may use (OpenMP). 0 leaves ImageMagick's
+     * own default; higher speeds AVIF on multi-core servers, in one process.
+     */
+    public int $threadLimit = 0;
+
+    /**
      * Encoder quality per format (1–100), applied globally.
      *
      * @var array<string, int>
@@ -97,6 +103,7 @@ class Settings extends Model
             ['matrices', 'validateMatrices'],
             ['fieldAssignments', 'validateAssignments'],
             ['formatQuality', 'validateFormatQuality'],
+            ['threadLimit', 'integer', 'min' => 0, 'max' => 64],
         ];
     }
 

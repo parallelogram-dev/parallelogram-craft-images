@@ -15,6 +15,8 @@ use yii\base\Component;
  */
 class Generator extends Component
 {
+    private bool $threadLimitApplied = false;
+
     /**
      * Immediately generate every transform for the given matrices on an asset.
      * Returns the number of transforms processed.
@@ -26,6 +28,8 @@ class Generator extends Component
         if ($asset->kind !== Asset::KIND_IMAGE || strtolower((string)$asset->getExtension()) === 'svg') {
             return 0;
         }
+
+        $this->applyThreadLimit();
 
         $count = 0;
 
@@ -47,6 +51,28 @@ class Generator extends Component
         }
 
         return $count;
+    }
+
+    /**
+     * Set ImageMagick's per-encode thread limit once per process, so warming
+     * uses multiple cores within one process (no extra processes spawned).
+     */
+    private function applyThreadLimit(): void
+    {
+        if ($this->threadLimitApplied) {
+            return;
+        }
+        $this->threadLimitApplied = true;
+
+        $limit = Plugin::getInstance()->getSettings()->threadLimit;
+
+        if ($limit > 0 && extension_loaded('imagick')) {
+            try {
+                (new \Imagick())->setResourceLimit(\Imagick::RESOURCETYPE_THREAD, $limit);
+            } catch (Throwable $e) {
+                Craft::warning('Image Variants: could not set ImageMagick thread limit: ' . $e->getMessage(), __METHOD__);
+            }
+        }
     }
 
     /**

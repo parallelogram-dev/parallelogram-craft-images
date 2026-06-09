@@ -54,6 +54,22 @@
 
 <hr>
 
+<h2>{{ 'Performance'|t('image-variants') }}</h2>
+{{ forms.textField({
+    label: 'ImageMagick thread limit'|t('image-variants'),
+    instructions: 'Threads each encode may use (OpenMP). 0 leaves ImageMagick’s own default. Higher speeds AVIF on multi-core servers — keep it a few below your core count. One process either way (no extra processes spawned).'|t('image-variants'),
+    id: 'threadLimit',
+    name: 'threadLimit',
+    value: settings.threadLimit,
+    type: 'number',
+    min: 0,
+    max: 64,
+    size: 4,
+    errors: settings.getErrors('threadLimit')
+}) }}
+
+<hr>
+
 <h2>{{ 'Field assignments'|t('image-variants') }}</h2>
 <p class="instructions">{{ 'Tick which matrices each Asset field may render with. A field can allow several — the template picks one by key, and a render call using a key not ticked here will throw.'|t('image-variants') }}</p>
 
