@@ -89,6 +89,7 @@
 
 {% js %}
 (function () {
+  try {
     var statusUrl = Craft.getActionUrl('image-variants/warm/status');
     var cells = Array.prototype.slice.call(document.querySelectorAll('.iv-warm-cell'));
     var panel = document.getElementById('iv-warm-active');
@@ -110,6 +111,7 @@
             // The "warm everything" cell also reflects any queued warm.
             if (!on && field === null && matrix === null && pending.warm > 0) { on = true; }
             var btn = cell.querySelector('button');
+            if (!btn) { return; }
             var label = cell.querySelector('.iv-warm-label');
             var spinner = cell.querySelector('.iv-warm-spinner');
             btn.disabled = on;
@@ -119,10 +121,14 @@
         });
 
         var auditing = active.some(function (s) { return (s.kind || 'warm') === 'audit'; }) || pending.audit > 0;
-        auditBtn.disabled = auditing;
-        auditBtn.classList.toggle('disabled', auditing);
-        auditBtn.querySelector('.iv-audit-label').textContent = auditing ? Craft.t('image-variants', 'Auditing…') : Craft.t('image-variants', 'Audit coverage');
-        auditBtn.querySelector('.iv-audit-spinner').classList.toggle('hidden', !auditing);
+        if (auditBtn) {
+            auditBtn.disabled = auditing;
+            auditBtn.classList.toggle('disabled', auditing);
+            var al = auditBtn.querySelector('.iv-audit-label');
+            if (al) { al.textContent = auditing ? Craft.t('image-variants', 'Auditing…') : Craft.t('image-variants', 'Audit coverage'); }
+            var as = auditBtn.querySelector('.iv-audit-spinner');
+            if (as) { as.classList.toggle('hidden', !auditing); }
+        }
     }
 
     function renderProgress(active, pending, now) {
@@ -169,9 +175,11 @@
 
     cells.forEach(function (cell) {
         var btn = cell.querySelector('button');
+        var form = cell.querySelector('form');
+        if (!btn || !form) { return; }
         var label = cell.querySelector('.iv-warm-label');
         btn.setAttribute('data-label', label ? label.textContent.trim() : 'Warm');
-        cell.querySelector('form').addEventListener('submit', function () {
+        form.addEventListener('submit', function () {
             btn.disabled = true;
             btn.classList.add('disabled');
             if (label) { label.textContent = Craft.t('image-variants', 'Warming…'); }
@@ -195,5 +203,8 @@
 
     setInterval(poll, 5000);
     poll();
+  } catch (e) {
+    if (window.console && window.console.error) { window.console.error('Image Variants utility JS:', e); }
+  }
 })();
 {% endjs %}
