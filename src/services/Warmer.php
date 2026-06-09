@@ -38,6 +38,28 @@ class Warmer extends Component
     }
 
     /**
+     * Release any queued-but-not-yet-running WarmJobs, so Stop clears the whole
+     * pipeline rather than just the job currently executing. Returns the count.
+     */
+    public function clearPendingJobs(): int
+    {
+        $queue = Craft::$app->getQueue();
+
+        $ids = (new Query())
+            ->select(['id'])
+            ->from([Table::QUEUE])
+            ->where(['like', 'job', 'WarmJob'])
+            ->andWhere(['dateReserved' => null])
+            ->column();
+
+        foreach ($ids as $id) {
+            $queue->release((string)$id);
+        }
+
+        return count($ids);
+    }
+
+    /**
      * Record a warm scope as in-progress (shared cache, so the CP can reflect
      * it). TTL guards against a hard-killed worker leaving a stuck marker.
      *

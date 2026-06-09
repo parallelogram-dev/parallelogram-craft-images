@@ -54,8 +54,13 @@ class WarmController extends Controller
         $this->requirePostRequest();
         $this->requirePermission('utility:image-variants-warm');
 
-        Plugin::getInstance()->warmer->requestStop();
-        $this->setSuccessFlash(Craft::t('image-variants', 'Stop requested — warming will halt shortly.'));
+        $warmer = Plugin::getInstance()->warmer;
+        $warmer->requestStop();
+        $cleared = $warmer->clearPendingJobs();
+
+        $this->setSuccessFlash(Craft::t('image-variants', 'Stopping — the running warm will halt and {n} pending job(s) were cleared.', [
+            'n' => $cleared,
+        ]));
 
         return $this->redirectToPostedUrl();
     }
