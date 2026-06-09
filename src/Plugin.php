@@ -8,9 +8,13 @@ use craft\base\Plugin as BasePlugin;
 use craft\fields\Assets;
 use craft\services\Assets as AssetsService;
 use craft\services\Elements;
+use craft\web\twig\variables\CraftVariable;
 use parallelogram\imagevariants\listeners\AssetEvents;
 use parallelogram\imagevariants\models\Settings;
 use parallelogram\imagevariants\services\Generator;
+use parallelogram\imagevariants\services\PathBuilder;
+use parallelogram\imagevariants\services\Resolver;
+use parallelogram\imagevariants\web\twig\VariantsVariable;
 use yii\base\Event;
 
 /**
@@ -18,10 +22,13 @@ use yii\base\Event;
  *
  * Owns the definition, generation, and URL production of responsive image
  * variants. Generation is synchronous (on save/replace) and via the warm
- * console command — never the queue.
+ * console command — never the queue. Render emits pre-generated static paths
+ * via craft.imageVariants.variantSet().
  *
  * @property-read Settings $settings
  * @property-read Generator $generator
+ * @property-read PathBuilder $paths
+ * @property-read Resolver $resolver
  */
 class Plugin extends BasePlugin
 {
@@ -35,6 +42,8 @@ class Plugin extends BasePlugin
 
         $this->setComponents([
             'generator' => Generator::class,
+            'paths' => PathBuilder::class,
+            'resolver' => Resolver::class,
         ]);
 
         Event::on(
@@ -47,6 +56,16 @@ class Plugin extends BasePlugin
             AssetsService::class,
             AssetsService::EVENT_AFTER_REPLACE_ASSET,
             [AssetEvents::class, 'handleAssetReplace']
+        );
+
+        Event::on(
+            CraftVariable::class,
+            CraftVariable::EVENT_INIT,
+            static function(Event $event): void {
+                /** @var CraftVariable $variable */
+                $variable = $event->sender;
+                $variable->set('imageVariants', VariantsVariable::class);
+            }
         );
     }
 
