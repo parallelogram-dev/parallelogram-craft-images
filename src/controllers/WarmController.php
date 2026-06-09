@@ -6,6 +6,7 @@ use Craft;
 use craft\helpers\App;
 use craft\web\Controller;
 use parallelogram\imagevariants\jobs\WarmJob;
+use parallelogram\imagevariants\Plugin;
 use yii\web\Response;
 
 /**
