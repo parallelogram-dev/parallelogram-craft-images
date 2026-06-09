@@ -3,14 +3,18 @@
 namespace parallelogram\imagevariants;
 
 use Craft;
+use craft\base\Element;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\elements\Asset;
 use craft\events\RegisterComponentTypesEvent;
+use craft\events\RegisterElementActionsEvent;
 use craft\fields\Assets;
 use craft\services\Assets as AssetsService;
 use craft\services\Elements;
 use craft\services\Utilities;
 use craft\web\twig\variables\CraftVariable;
+use parallelogram\imagevariants\elements\actions\RebuildVariants;
 use parallelogram\imagevariants\listeners\AssetEvents;
 use parallelogram\imagevariants\models\Settings;
 use parallelogram\imagevariants\services\Generator;
@@ -57,6 +61,14 @@ class Plugin extends BasePlugin
             Utilities::EVENT_REGISTER_UTILITIES,
             static function(RegisterComponentTypesEvent $event): void {
                 $event->types[] = WarmUtility::class;
+            }
+        );
+
+        Event::on(
+            Asset::class,
+            Element::EVENT_REGISTER_ACTIONS,
+            static function(RegisterElementActionsEvent $event): void {
+                $event->actions[] = RebuildVariants::class;
             }
         );
 

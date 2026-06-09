@@ -46,6 +46,33 @@ class PathBuilder extends Component
     }
 
     /**
+     * Whether the transform file exists AND is non-empty — so a truncated or
+     * failed transform reads as missing rather than falsely passing. Falls back
+     * to plain existence on filesystems that don't expose a size.
+     *
+     * @param array<string, mixed>|ImageTransform $transform
+     */
+    public function isUsable(Asset $asset, array|ImageTransform $transform): bool
+    {
+        $fs = $asset->getVolume()->getTransformFs();
+        $uri = $this->uriFor($asset, $transform);
+
+        if (!$fs->fileExists($uri)) {
+            return false;
+        }
+
+        if (method_exists($fs, 'getFileSize')) {
+            try {
+                return $fs->getFileSize($uri) > 0;
+            } catch (\Throwable) {
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * The transform URI relative to the transform filesystem root.
      *
      * @param array<string, mixed>|ImageTransform $transform

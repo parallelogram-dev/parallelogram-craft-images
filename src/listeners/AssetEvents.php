@@ -4,8 +4,6 @@ namespace parallelogram\imagevariants\listeners;
 
 use Craft;
 use craft\base\ElementInterface;
-use craft\db\Query;
-use craft\db\Table;
 use craft\elements\Asset;
 use craft\elements\db\AssetQuery;
 use craft\events\AssetEvent;
@@ -75,39 +73,10 @@ class AssetEvents
      */
     public static function handleAssetReplace(AssetEvent $event): void
     {
-        $matrixHandles = self::matrixHandlesForAsset($event->asset);
+        $matrixHandles = Plugin::getInstance()->warmer->matrixHandlesForAsset($event->asset);
 
         if ($matrixHandles !== []) {
             Plugin::getInstance()->generator->generate($event->asset, $matrixHandles);
         }
-    }
-
-    /**
-     * The union of matrices assigned to any field that relates this asset.
-     *
-     * @return string[]
-     */
-    private static function matrixHandlesForAsset(Asset $asset): array
-    {
-        $settings = Plugin::getInstance()->getSettings();
-
-        $fieldIds = (new Query())
-            ->select('fieldId')
-            ->from(Table::RELATIONS)
-            ->where(['targetId' => $asset->id])
-            ->andWhere(['not', ['fieldId' => null]])
-            ->distinct()
-            ->column();
-
-        $handles = [];
-
-        foreach ($fieldIds as $fieldId) {
-            $field = Craft::$app->getFields()->getFieldById((int)$fieldId);
-            if ($field !== null && isset($settings->fieldAssignments[$field->handle])) {
-                $handles = array_merge($handles, $settings->fieldAssignments[$field->handle]);
-            }
-        }
-
-        return array_values(array_unique($handles));
     }
 }

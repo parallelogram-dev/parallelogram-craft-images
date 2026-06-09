@@ -162,6 +162,52 @@ class Warmer extends Component
     /**
      * @param array{field: ?string, matrix: ?string, volume: ?string} $scope
      */
+    /**
+     * The union of matrices assigned to any field that relates this asset.
+     *
+     * @return string[]
+     */
+    public function matrixHandlesForAsset(Asset $asset): array
+    {
+        $settings = Plugin::getInstance()->getSettings();
+
+        $fieldIds = (new Query())
+            ->select('fieldId')
+            ->from(Table::RELATIONS)
+            ->where(['targetId' => $asset->id])
+            ->andWhere(['not', ['fieldId' => null]])
+            ->distinct()
+            ->column();
+
+        $handles = [];
+
+        foreach ($fieldIds as $fieldId) {
+            $field = Craft::$app->getFields()->getFieldById((int)$fieldId);
+            if ($field !== null && isset($settings->fieldAssignments[$field->handle])) {
+                $handles = array_merge($handles, $settings->fieldAssignments[$field->handle]);
+            }
+        }
+
+        return array_values(array_unique($handles));
+    }
+
+    /**
+     * Force-rebuild one asset: delete its existing transforms (so corrupt or
+     * truncated files are not skipped by idempotent generation), then regenerate
+     * its assigned matrices. Returns the number of transforms generated.
+     */
+    public function rebuild(Asset $asset): int
+    {
+        $matrices = $this->matrixHandlesForAsset($asset);
+        if ($matrices === []) {
+            return 0;
+        }
+
+        Craft::$app->getImageTransforms()->deleteCreatedTransformsForAsset($asset);
+
+        return Plugin::getInstance()->generator->generate($asset, $matrices);
+    }
+
     private function scopeKey(array $scope): string
     {
         return ($scope['kind'] ?? 'warm') . '|' . ($scope['field'] ?? '*') . '|' . ($scope['matrix'] ?? '*') . '|' . ($scope['volume'] ?? '*');
@@ -339,7 +385,7 @@ class Warmer extends Component
                         $missing = 0;
 
                         foreach ($transforms as $transform) {
-                            if (!$paths->exists($asset, $transform)) {
+                            if (!$paths->isUsable($asset, $transform)) {
                                 $missing++;
                             }
                         }
