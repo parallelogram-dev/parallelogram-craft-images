@@ -4,6 +4,7 @@ namespace parallelogram\imagevariants\controllers;
 
 use Craft;
 use craft\web\Controller;
+use parallelogram\imagevariants\jobs\AuditJob;
 use parallelogram\imagevariants\jobs\WarmJob;
 use yii\web\Response;
 
@@ -40,10 +41,33 @@ class WarmController extends Controller
         $this->requireAcceptsJson();
         $this->requirePermission('utility:image-variants-warm');
 
+        $warmer = Plugin::getInstance()->warmer;
+        $audit = $warmer->cachedAudit();
+
         return $this->asJson([
-            'active' => array_values(Plugin::getInstance()->warmer->activeScopes()),
+            'active' => array_values($warmer->activeScopes()),
             'now' => time(),
+            'coverage' => $audit['report'],
+            'auditedAt' => $audit['auditedAt'],
         ]);
+    }
+
+    /**
+     * Enqueue a coverage audit (read-only — no generation).
+     */
+    public function actionAudit(): ?Response
+    {
+        $this->requirePostRequest();
+        $this->requirePermission('utility:image-variants-warm');
+
+        Craft::$app->getQueue()->push(new AuditJob([
+            'field' => $this->request->getBodyParam('field') ?: null,
+            'matrix' => $this->request->getBodyParam('matrix') ?: null,
+        ]));
+
+        $this->setSuccessFlash(Craft::t('image-variants', 'Audit queued.'));
+
+        return $this->redirectToPostedUrl();
     }
 
     /**

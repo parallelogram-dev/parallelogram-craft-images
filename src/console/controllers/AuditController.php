@@ -38,6 +38,7 @@ class AuditController extends Controller
         $this->stdout("Auditing variant coverage (no generation)...\n\n");
 
         $report = Plugin::getInstance()->warmer->audit($this->field, $this->matrix, $this->volume);
+        // (audit() caches the report so the CP coverage view reflects a CLI run too.)
 
         if ($report === []) {
             $this->stdout("Nothing assigned to audit.\n");

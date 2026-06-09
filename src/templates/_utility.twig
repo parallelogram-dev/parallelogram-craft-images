@@ -15,9 +15,30 @@
         </form>
     </span>
 {% endmacro %}
-{% from _self import warmButton %}
 
-<p class="instructions">{{ 'Warming runs as one serial process — from the CLI or as a queue job. Progress below polls a shared record, so it is visible no matter which started it. Render never queues; this is deliberate, controlled generation.'|t('image-variants') }}</p>
+{% macro covBadge(cov) %}
+    {% if cov is null %}<span class="iv-cov light">{{ 'not audited'|t('image-variants') }}</span>
+    {% elseif cov.missing == 0 %}<span class="iv-cov iv-cov-ok">&check; {{ cov.covered }}/{{ cov.assets }}</span>
+    {% else %}<span class="iv-cov iv-cov-warn">{{ cov.covered }}/{{ cov.assets }} &middot; {{ cov.missing }} {{ 'missing'|t('image-variants') }}</span>
+    {% endif %}
+{% endmacro %}
+
+{% from _self import warmButton, covBadge %}
+
+<p class="instructions">{{ 'Warming runs as one serial process (CLI or queue) — progress below polls a shared record, so it is visible no matter which started it. Audit is read-only: it checks coverage without generating anything, so you only warm when there is a gap.'|t('image-variants') }}</p>
+
+<div class="iv-toolbar">
+    <form method="post" accept-charset="UTF-8" class="iv-inline">
+        {{ csrfInput() }}
+        {{ actionInput('image-variants/warm/audit') }}
+        {{ redirectInput('utilities/image-variants-warm') }}
+        <button type="submit" id="iv-audit-btn" class="btn{{ anyAuditing ? ' disabled' : '' }}" {{ anyAuditing ? 'disabled' : '' }}>
+            <span class="iv-audit-label">{{ anyAuditing ? 'Auditing…'|t('image-variants') : 'Audit coverage'|t('image-variants') }}</span>
+            <span class="iv-audit-spinner spinner{{ anyAuditing ? '' : ' hidden' }}"></span>
+        </button>
+    </form>
+    <span id="iv-audited" class="light" data-at="{{ auditedAt ?: '' }}"></span>
+</div>
 
 <div id="iv-warm-active" class="iv-warm-active"></div>
 
@@ -34,6 +55,7 @@
             <th>{{ 'Field'|t('image-variants') }}</th>
             <th>{{ 'Matrix'|t('image-variants') }}</th>
             <th>{{ 'Assets'|t('image-variants') }}</th>
+            <th>{{ 'Coverage'|t('image-variants') }}</th>
             <th></th>
         </tr>
     </thead>
@@ -43,10 +65,11 @@
                 <td><code>{{ row.field }}</code></td>
                 <td><code>{{ row.matrix }}</code></td>
                 <td>{{ row.count }}</td>
+                <td class="iv-cov-cell" data-matrix="{{ row.matrix }}">{{ covBadge(row.coverage) }}</td>
                 <td class="thin">{{ warmButton('Warm'|t('image-variants'), row.field, row.matrix, row.active, false) }}</td>
             </tr>
         {% else %}
-            <tr><td colspan="4">{{ 'No field assignments yet.'|t('image-variants') }}</td></tr>
+            <tr><td colspan="5">{{ 'No field assignments yet.'|t('image-variants') }}</td></tr>
         {% endfor %}
     </tbody>
 </table>
@@ -54,10 +77,14 @@
 <p class="buttons">{{ warmButton('Warm everything'|t('image-variants'), '', '', anyActive, true) }}</p>
 
 {% css %}
+.iv-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.iv-inline { display: inline-block; }
 .iv-warm-active { margin: 0 0 14px; }
 .iv-warm-row { margin: 0 0 10px; }
 .iv-warm-bar { height: 6px; border-radius: 3px; background: #e3e5e8; overflow: hidden; margin-top: 4px; }
 .iv-warm-bar-fill { height: 100%; background: #3f7fff; transition: width .4s ease; }
+.iv-cov-ok { color: #127f48; font-weight: 500; }
+.iv-cov-warn { color: #bf7d10; }
 {% endcss %}
 
 {% js %}
@@ -66,6 +93,8 @@
     var cells = Array.prototype.slice.call(document.querySelectorAll('.iv-warm-cell'));
     var panel = document.getElementById('iv-warm-active');
     var stopForm = document.getElementById('iv-warm-stop');
+    var auditBtn = document.getElementById('iv-audit-btn');
+    var auditedEl = document.getElementById('iv-audited');
 
     function covers(scope, field, matrix) {
         var f = scope.field || null, m = scope.matrix || null;
@@ -73,10 +102,11 @@
     }
 
     function applyButtons(active) {
+        var warms = active.filter(function (s) { return (s.kind || 'warm') === 'warm'; });
         cells.forEach(function (cell) {
             var field = cell.getAttribute('data-field') || null;
             var matrix = cell.getAttribute('data-matrix') || null;
-            var on = active.some(function (s) { return covers(s, field, matrix); });
+            var on = warms.some(function (s) { return covers(s, field, matrix); });
             var btn = cell.querySelector('button');
             var label = cell.querySelector('.iv-warm-label');
             var spinner = cell.querySelector('.iv-warm-spinner');
@@ -85,24 +115,50 @@
             if (label) { label.textContent = on ? Craft.t('image-variants', 'Warming…') : btn.getAttribute('data-label'); }
             if (spinner) { spinner.classList.toggle('hidden', !on); }
         });
+
+        var auditing = active.some(function (s) { return (s.kind || 'warm') === 'audit'; });
+        auditBtn.disabled = auditing;
+        auditBtn.classList.toggle('disabled', auditing);
+        auditBtn.querySelector('.iv-audit-label').textContent = auditing ? Craft.t('image-variants', 'Auditing…') : Craft.t('image-variants', 'Audit coverage');
+        auditBtn.querySelector('.iv-audit-spinner').classList.toggle('hidden', !auditing);
     }
 
     function renderProgress(active, now) {
         if (!active.length) {
-            panel.innerHTML = '<p class="light">' + Craft.t('image-variants', 'No warming in progress.') + '</p>';
+            panel.innerHTML = '';
             stopForm.classList.add('hidden');
             return;
         }
         panel.innerHTML = active.map(function (s) {
             var total = s.total || 0, processed = s.processed || 0;
             var pct = total ? Math.round(processed / total * 100) : 0;
-            var label = (s.field || 'all fields') + ' / ' + (s.matrix || 'all matrices');
+            var verb = (s.kind || 'warm') === 'audit' ? Craft.t('image-variants', 'Auditing') : Craft.t('image-variants', 'Warming');
+            var label = verb + ' ' + (s.field || 'all fields') + ' / ' + (s.matrix || 'all matrices');
             var age = now - (s.updatedAt || now);
             var stale = age > 30 ? ' <span class="error">(' + Craft.t('image-variants', 'no update for {n}s', { n: age }) + ')</span>' : '';
             return '<div class="iv-warm-row"><strong>' + label + '</strong> — ' + processed + ' / ' + total + ' (' + pct + '%)' + stale +
                 '<div class="iv-warm-bar"><div class="iv-warm-bar-fill" style="width:' + pct + '%"></div></div></div>';
         }).join('');
-        stopForm.classList.remove('hidden');
+        // Stop is for warms only.
+        stopForm.classList.toggle('hidden', !active.some(function (s) { return (s.kind || 'warm') === 'warm'; }));
+    }
+
+    function renderCoverage(coverage, auditedAt, now) {
+        document.querySelectorAll('.iv-cov-cell').forEach(function (cell) {
+            var cov = coverage[cell.getAttribute('data-matrix')];
+            if (!cov) { cell.innerHTML = '<span class="iv-cov light">' + Craft.t('image-variants', 'not audited') + '</span>'; return; }
+            if (cov.missing === 0) {
+                cell.innerHTML = '<span class="iv-cov iv-cov-ok">✓ ' + cov.covered + '/' + cov.assets + '</span>';
+            } else {
+                cell.innerHTML = '<span class="iv-cov iv-cov-warn">' + cov.covered + '/' + cov.assets + ' · ' + cov.missing + ' ' + Craft.t('image-variants', 'missing') + '</span>';
+            }
+        });
+        if (auditedAt) {
+            var ago = now - auditedAt;
+            auditedEl.textContent = Craft.t('image-variants', 'Last audited {n}s ago', { n: ago });
+        } else {
+            auditedEl.textContent = Craft.t('image-variants', 'Not audited yet');
+        }
     }
 
     cells.forEach(function (cell) {
@@ -125,6 +181,7 @@
                 var active = data.active || [];
                 renderProgress(active, data.now || 0);
                 applyButtons(active);
+                renderCoverage(data.coverage || {}, data.auditedAt || 0, data.now || 0);
             })
             .catch(function () {});
     }

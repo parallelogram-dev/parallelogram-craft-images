@@ -30,15 +30,20 @@ class WarmUtility extends Utility
     public static function contentHtml(): string
     {
         $warmer = Plugin::getInstance()->warmer;
+        $audit = $warmer->cachedAudit();
+        $coverage = $audit['report'];
 
-        $rows = array_map(static function(array $row) use ($warmer): array {
+        $rows = array_map(static function(array $row) use ($warmer, $coverage): array {
             $row['active'] = $warmer->isActive($row['field'], $row['matrix']);
+            $row['coverage'] = $coverage[$row['matrix']] ?? null;
             return $row;
         }, $warmer->summary());
 
         return Craft::$app->getView()->renderTemplate('image-variants/_utility', [
             'rows' => $rows,
             'anyActive' => $warmer->isActive(null, null),
+            'anyAuditing' => $warmer->isActive(null, null, 'audit'),
+            'auditedAt' => $audit['auditedAt'],
         ]);
     }
 }

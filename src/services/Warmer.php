@@ -18,6 +18,30 @@ class Warmer extends Component
 {
     private const ACTIVE_CACHE_KEY = 'image-variants.warming';
     private const STOP_CACHE_KEY = 'image-variants.warm-stop';
+    private const AUDIT_CACHE_KEY = 'image-variants.audit';
+
+    /**
+     * Merge an audit report into the cached coverage (per matrix), so a partial
+     * audit updates only its part. Both the CLI and the job call this.
+     *
+     * @param array<string, array{assets: int, covered: int, transforms: int, missing: int}> $report
+     */
+    public function cacheAuditReport(array $report): void
+    {
+        $existing = $this->cachedAudit()['report'] ?? [];
+        Craft::$app->getCache()->set(self::AUDIT_CACHE_KEY, [
+            'report' => array_merge($existing, $report),
+            'auditedAt' => time(),
+        ]);
+    }
+
+    /**
+     * @return array{report: array<string, array<string, int>>, auditedAt: ?int}
+     */
+    public function cachedAudit(): array
+    {
+        return Craft::$app->getCache()->get(self::AUDIT_CACHE_KEY) ?: ['report' => [], 'auditedAt' => null];
+    }
 
     /**
      * Request that any in-flight warm (CLI or queue) stop at its next tick.
@@ -67,6 +91,7 @@ class Warmer extends Component
      */
     public function markActive(array $scope, int $total = 0): void
     {
+        $scope['kind'] = $scope['kind'] ?? 'warm';
         $active = $this->activeScopes();
         $active[$this->scopeKey($scope)] = $scope + [
             'processed' => 0,
@@ -116,9 +141,13 @@ class Warmer extends Component
      * Whether a running warm covers this field/matrix (a null field/matrix in a
      * scope means "everything"/"every matrix of that field").
      */
-    public function isActive(?string $field, ?string $matrix): bool
+    public function isActive(?string $field, ?string $matrix, string $kind = 'warm'): bool
     {
         foreach ($this->activeScopes() as $scope) {
+            if (($scope['kind'] ?? 'warm') !== $kind) {
+                continue;
+            }
+
             $f = $scope['field'] ?? null;
             $m = $scope['matrix'] ?? null;
 
@@ -135,7 +164,7 @@ class Warmer extends Component
      */
     private function scopeKey(array $scope): string
     {
-        return ($scope['field'] ?? '*') . '|' . ($scope['matrix'] ?? '*') . '|' . ($scope['volume'] ?? '*');
+        return ($scope['kind'] ?? 'warm') . '|' . ($scope['field'] ?? '*') . '|' . ($scope['matrix'] ?? '*') . '|' . ($scope['volume'] ?? '*');
     }
 
     /**
@@ -273,7 +302,7 @@ class Warmer extends Component
      *
      * @return array<string, array{assets: int, covered: int, transforms: int, missing: int}>
      */
-    public function audit(?string $field = null, ?string $matrix = null, ?string $volume = null, ?callable $onProgress = null): array
+    public function audit(?string $field = null, ?string $matrix = null, ?string $volume = null, ?callable $onProgress = null, bool $track = false): array
     {
         $plan = $this->plan($field, $matrix, $volume);
         $generator = Plugin::getInstance()->generator;
@@ -284,45 +313,65 @@ class Warmer extends Component
         $total = count($ids);
         $processed = 0;
         $batchSize = 100;
+        $startedAt = time();
+        $lastTick = 0;
 
-        for ($offset = 0; $offset < $total; $offset += $batchSize) {
-            $chunk = array_slice($ids, $offset, $batchSize);
-            $assets = Asset::find()->id($chunk)->kind('image')->indexBy('id')->all();
+        $scope = ['kind' => 'audit', 'field' => $field, 'matrix' => $matrix, 'volume' => $volume];
+        if ($track) {
+            $this->markActive($scope, $total);
+        }
 
-            foreach ($chunk as $assetId) {
-                $asset = $assets[$assetId] ?? null;
-                $processed++;
+        try {
+            for ($offset = 0; $offset < $total; $offset += $batchSize) {
+                $chunk = array_slice($ids, $offset, $batchSize);
+                $assets = Asset::find()->id($chunk)->kind('image')->indexBy('id')->all();
 
-                if ($asset === null) {
-                    continue;
-                }
+                foreach ($chunk as $assetId) {
+                    $asset = $assets[$assetId] ?? null;
+                    $processed++;
 
-                foreach ($plan[$assetId] as $matrixHandle) {
-                    $transforms = $generator->transformsFor([$matrixHandle]);
-                    $missing = 0;
-
-                    foreach ($transforms as $transform) {
-                        if (!$paths->exists($asset, $transform)) {
-                            $missing++;
-                        }
+                    if ($asset === null) {
+                        continue;
                     }
 
-                    $report[$matrixHandle]['assets'] = ($report[$matrixHandle]['assets'] ?? 0) + 1;
-                    $report[$matrixHandle]['transforms'] = ($report[$matrixHandle]['transforms'] ?? 0) + count($transforms);
-                    $report[$matrixHandle]['missing'] = ($report[$matrixHandle]['missing'] ?? 0) + $missing;
-                    $report[$matrixHandle]['covered'] = ($report[$matrixHandle]['covered'] ?? 0) + ($missing === 0 ? 1 : 0);
+                    foreach ($plan[$assetId] as $matrixHandle) {
+                        $transforms = $generator->transformsFor([$matrixHandle]);
+                        $missing = 0;
+
+                        foreach ($transforms as $transform) {
+                            if (!$paths->exists($asset, $transform)) {
+                                $missing++;
+                            }
+                        }
+
+                        $report[$matrixHandle]['assets'] = ($report[$matrixHandle]['assets'] ?? 0) + 1;
+                        $report[$matrixHandle]['transforms'] = ($report[$matrixHandle]['transforms'] ?? 0) + count($transforms);
+                        $report[$matrixHandle]['missing'] = ($report[$matrixHandle]['missing'] ?? 0) + $missing;
+                        $report[$matrixHandle]['covered'] = ($report[$matrixHandle]['covered'] ?? 0) + ($missing === 0 ? 1 : 0);
+                    }
+
+                    if ($onProgress !== null) {
+                        $onProgress($processed, $total, $asset);
+                    }
+
+                    $now = time();
+                    if ($track && ($now - $lastTick >= 2 || $processed === $total)) {
+                        $this->markProgress($scope, $processed);
+                        $lastTick = $now;
+                    }
                 }
 
-                if ($onProgress !== null) {
-                    $onProgress($processed, $total, $asset);
-                }
+                unset($assets);
+                gc_collect_cycles();
             }
-
-            unset($assets);
-            gc_collect_cycles();
+        } finally {
+            if ($track) {
+                $this->markDone($scope);
+            }
         }
 
         ksort($report);
+        $this->cacheAuditReport($report);
 
         return $report;
     }
