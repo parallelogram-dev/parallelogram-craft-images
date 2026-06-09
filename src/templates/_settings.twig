@@ -1,30 +1,63 @@
 {% import "_includes/forms" as forms %}
 
-{% set matrices = settings.matrices %}
-{% set assignments = settings.fieldAssignments %}
+{{ forms.editableTableField({
+    label: 'Variant matrices'|t('image-variants'),
+    instructions: 'Each row is a named matrix. Tick the formats to generate; widths are comma-separated pixel values. Per-variant heights and modes (the richer model) remain editable via config/image-variants.php.'|t('image-variants'),
+    id: 'matrixRows',
+    name: 'matrixRows',
+    cols: {
+        handle: { type: 'singleline', heading: 'Handle'|t('image-variants'), width: '12%', placeholder: 'card' },
+        sizes: { type: 'singleline', heading: 'Sizes'|t('image-variants'), placeholder: '100vw' },
+        widths: { type: 'singleline', heading: 'Widths'|t('image-variants'), placeholder: '480, 960, 1280' },
+        avif: { type: 'checkbox', heading: 'AVIF'|t('image-variants') },
+        webp: { type: 'checkbox', heading: 'WebP'|t('image-variants') },
+        jpg: { type: 'checkbox', heading: 'JPG'|t('image-variants') },
+        png: { type: 'checkbox', heading: 'PNG'|t('image-variants') },
+        mode: { type: 'select', heading: 'Mode'|t('image-variants'), width: '12%', options: [
+            { label: 'Crop', value: 'crop' },
+            { label: 'Fit', value: 'fit' },
+            { label: 'Stretch', value: 'stretch' },
+            { label: 'Letterbox', value: 'letterbox' }
+        ] }
+    },
+    rows: settings.matrixRowsForDisplay,
+    addRowLabel: 'Add a matrix'|t('image-variants'),
+    allowAdd: true,
+    allowDelete: true,
+    errors: settings.getErrors('matrices')
+}) }}
 
-<div class="readable">
-    <blockquote class="note">
-        <strong>Phase 1 — skeleton.</strong> Editing UI for matrices and field
-        assignments arrives in later phases. The values below are seeded from the
-        previous <code>config/imageprofiles.php</code> and are stored in Project Config.
-    </blockquote>
+<hr>
 
-    <h2>Variant matrices ({{ matrices | length }})</h2>
-    <ul>
-        {% for handle, matrix in matrices %}
-            <li>
-                <code>{{ handle }}</code> —
-                {{ matrix.variants | length }} variants,
-                sizes <code>{{ matrix.sizes }}</code>
-            </li>
-        {% endfor %}
-    </ul>
+<h2>{{ 'Format quality'|t('image-variants') }}</h2>
+<p class="instructions">{{ 'Encoder quality per format (1–100), applied to every matrix. The same number means different things per format — AVIF and WebP reach comparable quality at far lower values than JPG.'|t('image-variants') }}</p>
 
-    <h2>Field assignments ({{ assignments | length }})</h2>
-    <ul>
-        {% for field, keys in assignments %}
-            <li><code>{{ field }}</code> &rarr; {{ keys | join(', ') }}</li>
-        {% endfor %}
-    </ul>
+<div class="flex">
+    {% for format, quality in settings.formatQuality %}
+        {{ forms.textField({
+            label: format | upper,
+            id: 'formatQuality-' ~ format,
+            name: 'formatQuality[' ~ format ~ ']',
+            value: quality,
+            type: 'number',
+            min: 1,
+            max: 100,
+            size: 4
+        }) }}
+    {% endfor %}
 </div>
+{% if settings.getErrors('formatQuality') %}
+    <ul class="errors">
+        {% for error in settings.getErrors('formatQuality') %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+{% endif %}
+
+<hr>
+
+<h2>{{ 'Field assignments'|t('image-variants') }}</h2>
+<p class="light">{{ 'Read-only for now — the editable assignment screen arrives in Phase 3.'|t('image-variants') }}</p>
+<ul>
+    {% for field, keys in settings.fieldAssignments %}
+        <li><code>{{ field }}</code> &rarr; {{ keys | join(', ') }}</li>
+    {% endfor %}
+</ul>
