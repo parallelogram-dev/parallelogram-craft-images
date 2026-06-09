@@ -42,6 +42,21 @@ class WarmController extends Controller
 
         return $this->asJson([
             'active' => array_values(Plugin::getInstance()->warmer->activeScopes()),
+            'now' => time(),
         ]);
+    }
+
+    /**
+     * Ask any in-flight warm (CLI or queue) to stop at its next tick.
+     */
+    public function actionStop(): ?Response
+    {
+        $this->requirePostRequest();
+        $this->requirePermission('utility:image-variants-warm');
+
+        Plugin::getInstance()->warmer->requestStop();
+        $this->setSuccessFlash(Craft::t('image-variants', 'Stop requested — warming will halt shortly.'));
+
+        return $this->redirectToPostedUrl();
     }
 }

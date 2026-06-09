@@ -23,30 +23,24 @@ class WarmJob extends BaseJob
     public function execute($queue): void
     {
         $warmer = Plugin::getInstance()->warmer;
+        $plan = $warmer->plan($this->field, $this->matrix, $this->volume);
+
+        if ($plan === []) {
+            return;
+        }
+
         $scope = ['field' => $this->field, 'matrix' => $this->matrix, 'volume' => $this->volume];
 
-        $warmer->markActive($scope);
-
-        try {
-            $plan = $warmer->plan($this->field, $this->matrix, $this->volume);
-
-            if ($plan === []) {
-                return;
-            }
-
-            $warmer->warm($plan, function(int $processed, int $total, ?Asset $asset, int $made) use ($queue): void {
-                $this->setProgress(
-                    $queue,
-                    $processed / $total,
-                    Craft::t('image-variants', '{processed} of {total}', [
-                        'processed' => $processed,
-                        'total' => $total,
-                    ])
-                );
-            });
-        } finally {
-            $warmer->markDone($scope);
-        }
+        $warmer->warm($plan, $scope, function(int $processed, int $total, ?Asset $asset, int $made) use ($queue): void {
+            $this->setProgress(
+                $queue,
+                $processed / $total,
+                Craft::t('image-variants', '{processed} of {total}', [
+                    'processed' => $processed,
+                    'total' => $total,
+                ])
+            );
+        });
     }
 
     protected function defaultDescription(): ?string

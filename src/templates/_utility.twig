@@ -8,8 +8,7 @@
             {{ redirectInput('utilities/image-variants-warm') }}
             {% if field %}{{ hiddenInput('field', field) }}{% endif %}
             {% if matrix %}{{ hiddenInput('matrix', matrix) }}{% endif %}
-            <button type="submit" class="btn {{ submit ? 'submit' : 'small' }}{{ active ? ' disabled' : '' }}"
-                    {{ active ? 'disabled' : '' }}>
+            <button type="submit" class="btn {{ submit ? 'submit' : 'small' }}{{ active ? ' disabled' : '' }}" {{ active ? 'disabled' : '' }}>
                 <span class="iv-warm-label">{{ active ? 'Warming…'|t('image-variants') : label }}</span>
                 <span class="iv-warm-spinner spinner{{ active ? '' : ' hidden' }}"></span>
             </button>
@@ -18,7 +17,16 @@
 {% endmacro %}
 {% from _self import warmButton %}
 
-<p class="instructions">{{ 'Warming runs as a single serial queue job — watch its progress in the queue widget. Render never queues; this is deliberate, controlled generation.'|t('image-variants') }}</p>
+<p class="instructions">{{ 'Warming runs as one serial process — from the CLI or as a queue job. Progress below polls a shared record, so it is visible no matter which started it. Render never queues; this is deliberate, controlled generation.'|t('image-variants') }}</p>
+
+<div id="iv-warm-active" class="iv-warm-active"></div>
+
+<form id="iv-warm-stop" method="post" accept-charset="UTF-8" class="hidden">
+    {{ csrfInput() }}
+    {{ actionInput('image-variants/warm/stop') }}
+    {{ redirectInput('utilities/image-variants-warm') }}
+    <button type="submit" class="btn caution">{{ 'Stop warming'|t('image-variants') }}</button>
+</form>
 
 <table class="data fullwidth">
     <thead>
@@ -45,17 +53,26 @@
 
 <p class="buttons">{{ warmButton('Warm everything'|t('image-variants'), '', '', anyActive, true) }}</p>
 
+{% css %}
+.iv-warm-active { margin: 0 0 14px; }
+.iv-warm-row { margin: 0 0 10px; }
+.iv-warm-bar { height: 6px; border-radius: 3px; background: #e3e5e8; overflow: hidden; margin-top: 4px; }
+.iv-warm-bar-fill { height: 100%; background: #3f7fff; transition: width .4s ease; }
+{% endcss %}
+
 {% js %}
 (function () {
     var statusUrl = Craft.getActionUrl('image-variants/warm/status');
     var cells = Array.prototype.slice.call(document.querySelectorAll('.iv-warm-cell'));
+    var panel = document.getElementById('iv-warm-active');
+    var stopForm = document.getElementById('iv-warm-stop');
 
     function covers(scope, field, matrix) {
         var f = scope.field || null, m = scope.matrix || null;
         return (f === null || f === field) && (m === null || m === matrix);
     }
 
-    function apply(active) {
+    function applyButtons(active) {
         cells.forEach(function (cell) {
             var field = cell.getAttribute('data-field') || null;
             var matrix = cell.getAttribute('data-matrix') || null;
@@ -70,12 +87,29 @@
         });
     }
 
+    function renderProgress(active, now) {
+        if (!active.length) {
+            panel.innerHTML = '<p class="light">' + Craft.t('image-variants', 'No warming in progress.') + '</p>';
+            stopForm.classList.add('hidden');
+            return;
+        }
+        panel.innerHTML = active.map(function (s) {
+            var total = s.total || 0, processed = s.processed || 0;
+            var pct = total ? Math.round(processed / total * 100) : 0;
+            var label = (s.field || 'all fields') + ' / ' + (s.matrix || 'all matrices');
+            var age = now - (s.updatedAt || now);
+            var stale = age > 30 ? ' <span class="error">(' + Craft.t('image-variants', 'no update for {n}s', { n: age }) + ')</span>' : '';
+            return '<div class="iv-warm-row"><strong>' + label + '</strong> — ' + processed + ' / ' + total + ' (' + pct + '%)' + stale +
+                '<div class="iv-warm-bar"><div class="iv-warm-bar-fill" style="width:' + pct + '%"></div></div></div>';
+        }).join('');
+        stopForm.classList.remove('hidden');
+    }
+
     cells.forEach(function (cell) {
         var btn = cell.querySelector('button');
         var label = cell.querySelector('.iv-warm-label');
         btn.setAttribute('data-label', label ? label.textContent.trim() : 'Warm');
         cell.querySelector('form').addEventListener('submit', function () {
-            // optimistic flip
             btn.disabled = true;
             btn.classList.add('disabled');
             if (label) { label.textContent = Craft.t('image-variants', 'Warming…'); }
@@ -87,11 +121,15 @@
     function poll() {
         fetch(statusUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
-            .then(function (data) { apply(data.active || []); })
+            .then(function (data) {
+                var active = data.active || [];
+                renderProgress(active, data.now || 0);
+                applyButtons(active);
+            })
             .catch(function () {});
     }
 
-    setInterval(poll, 3000);
+    setInterval(poll, 5000);
     poll();
 })();
 {% endjs %}
