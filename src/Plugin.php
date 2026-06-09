@@ -5,15 +5,19 @@ namespace parallelogram\imagevariants;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\events\RegisterComponentTypesEvent;
 use craft\fields\Assets;
 use craft\services\Assets as AssetsService;
 use craft\services\Elements;
+use craft\services\Utilities;
 use craft\web\twig\variables\CraftVariable;
 use parallelogram\imagevariants\listeners\AssetEvents;
 use parallelogram\imagevariants\models\Settings;
 use parallelogram\imagevariants\services\Generator;
 use parallelogram\imagevariants\services\PathBuilder;
 use parallelogram\imagevariants\services\Resolver;
+use parallelogram\imagevariants\services\Warmer;
+use parallelogram\imagevariants\utilities\WarmUtility;
 use parallelogram\imagevariants\web\twig\VariantsVariable;
 use yii\base\Event;
 
@@ -29,6 +33,7 @@ use yii\base\Event;
  * @property-read Generator $generator
  * @property-read PathBuilder $paths
  * @property-read Resolver $resolver
+ * @property-read Warmer $warmer
  */
 class Plugin extends BasePlugin
 {
@@ -44,7 +49,16 @@ class Plugin extends BasePlugin
             'generator' => Generator::class,
             'paths' => PathBuilder::class,
             'resolver' => Resolver::class,
+            'warmer' => Warmer::class,
         ]);
+
+        Event::on(
+            Utilities::class,
+            Utilities::EVENT_REGISTER_UTILITIES,
+            static function(RegisterComponentTypesEvent $event): void {
+                $event->types[] = WarmUtility::class;
+            }
+        );
 
         Event::on(
             Elements::class,

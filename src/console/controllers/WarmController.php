@@ -2,9 +2,6 @@
 
 namespace parallelogram\imagevariants\console\controllers;
 
-use Craft;
-use craft\db\Query;
-use craft\db\Table;
 use craft\elements\Asset;
 use parallelogram\imagevariants\Plugin;
 use yii\console\Controller;
@@ -14,8 +11,10 @@ use yii\helpers\Console;
 /**
  * Pre-generates the assigned variants for existing assets.
  *
- * A plain, long-running CLI sweep — no queue. Idempotent (existing transforms
- * are not re-encoded), so re-running resumes by filling only what is missing.
+ * A plain, long-running CLI sweep — no queue. Runs the same Warmer::warm()
+ * engine as the CP WarmJob: serial, ~100 assets in memory at a time, idempotent
+ * (existing transforms are not re-encoded), so re-running resumes by filling
+ * only what is missing.
  *
  *   php craft image-variants/warm
  *   php craft image-variants/warm --field=preview
@@ -48,63 +47,15 @@ class WarmController extends Controller
 
     public function actionIndex(): int
     {
-        $settings = Plugin::getInstance()->getSettings();
-        $generator = Plugin::getInstance()->generator;
+        $warmer = Plugin::getInstance()->warmer;
 
-        $assignments = $settings->fieldAssignments;
-        if ($this->field !== null) {
-            $assignments = array_intersect_key($assignments, [$this->field => true]);
-        }
-
-        // assetId => set of matrix handles to generate (union across fields)
-        $assetMatrices = [];
-
-        foreach ($assignments as $fieldHandle => $matrixHandles) {
-            if ($this->matrix !== null) {
-                $matrixHandles = array_values(array_intersect($matrixHandles, [$this->matrix]));
-            }
-            if ($matrixHandles === []) {
-                continue;
-            }
-
-            $field = Craft::$app->getFields()->getFieldByHandle($fieldHandle);
-            if ($field === null) {
-                continue;
-            }
-
-            $targetIds = (new Query())
-                ->select('targetId')
-                ->from(Table::RELATIONS)
-                ->where(['fieldId' => $field->id])
-                ->distinct()
-                ->column();
-
-            foreach ($targetIds as $assetId) {
-                $assetMatrices[(int)$assetId] = array_values(array_unique(array_merge(
-                    $assetMatrices[(int)$assetId] ?? [],
-                    $matrixHandles
-                )));
-            }
-        }
-
-        if ($assetMatrices === []) {
-            $this->stdout("Nothing to warm.\n");
-            return ExitCode::OK;
-        }
-
-        // Restrict to real image assets (+ optional volume), preserving the map.
-        $query = Asset::find()->id(array_keys($assetMatrices))->kind('image');
-        if ($this->volume !== null) {
-            $query->volume($this->volume);
-        }
-        $validIds = array_map('intval', $query->ids());
-        $assetMatrices = array_intersect_key($assetMatrices, array_flip($validIds));
+        $plan = $warmer->plan($this->field, $this->matrix, $this->volume);
 
         if ($this->limit !== null) {
-            $assetMatrices = array_slice($assetMatrices, 0, $this->limit, true);
+            $plan = array_slice($plan, 0, $this->limit, true);
         }
 
-        $total = count($assetMatrices);
+        $total = count($plan);
         if ($total === 0) {
             $this->stdout("Nothing to warm.\n");
             return ExitCode::OK;
@@ -112,44 +63,19 @@ class WarmController extends Controller
 
         $this->stdout("Warming {$total} asset(s)...\n\n");
 
-        $ids = array_keys($assetMatrices);
-        $processed = 0;
-        $variants = 0;
-        $batchSize = 100;
-
-        for ($offset = 0; $offset < $total; $offset += $batchSize) {
-            $chunk = array_slice($ids, $offset, $batchSize);
-            $assets = Asset::find()->id($chunk)->kind('image')->indexBy('id')->all();
-
-            foreach ($chunk as $assetId) {
-                $asset = $assets[$assetId] ?? null;
-                if ($asset === null) {
-                    continue;
-                }
-
-                $handles = $assetMatrices[$assetId];
-                $made = $generator->generate($asset, $handles);
-                $processed++;
-                $variants += $made;
-
-                $this->stdout(sprintf(
-                    "[%d/%d] %s — %d variants (%s)\n",
-                    $processed,
-                    $total,
-                    $asset->filename,
-                    $made,
-                    implode(',', $handles)
-                ));
-
-                if ($this->throttle > 0) {
-                    usleep((int)($this->throttle * 1_000_000));
-                }
-            }
-        }
+        $variants = $warmer->warm($plan, function(int $processed, int $total, ?Asset $asset, int $made): void {
+            $this->stdout(sprintf(
+                "[%d/%d] %s — %d variants\n",
+                $processed,
+                $total,
+                $asset?->filename ?? '(missing)',
+                $made
+            ));
+        }, $this->throttle);
 
         $this->stdout(sprintf(
             "\nDone. %d assets processed, %d variants generated.\n",
-            $processed,
+            $total,
             $variants
         ), Console::FG_GREEN);
 

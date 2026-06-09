@@ -1,0 +1,42 @@
+{% import "_includes/forms" as forms %}
+
+<p class="instructions">{{ 'Warming runs as a single serial queue job — watch its progress in the queue widget. Render never queues; this is deliberate, controlled generation.'|t('image-variants') }}</p>
+
+<table class="data fullwidth">
+    <thead>
+        <tr>
+            <th>{{ 'Field'|t('image-variants') }}</th>
+            <th>{{ 'Matrix'|t('image-variants') }}</th>
+            <th>{{ 'Assets'|t('image-variants') }}</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+            <tr>
+                <td><code>{{ row.field }}</code></td>
+                <td><code>{{ row.matrix }}</code></td>
+                <td>{{ row.count }}</td>
+                <td class="thin">
+                    <form method="post" accept-charset="UTF-8">
+                        {{ csrfInput() }}
+                        {{ actionInput('image-variants/warm/queue') }}
+                        {{ redirectInput('utilities/image-variants-warm') }}
+                        {{ hiddenInput('field', row.field) }}
+                        {{ hiddenInput('matrix', row.matrix) }}
+                        <button type="submit" class="btn small">{{ 'Warm'|t('image-variants') }}</button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="4">{{ 'No field assignments yet.'|t('image-variants') }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<form method="post" accept-charset="UTF-8" class="buttons">
+    {{ csrfInput() }}
+    {{ actionInput('image-variants/warm/queue') }}
+    {{ redirectInput('utilities/image-variants-warm') }}
+    <button type="submit" class="btn submit">{{ 'Warm everything'|t('image-variants') }}</button>
+</form>
