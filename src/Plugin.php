@@ -6,23 +6,49 @@ use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
 use craft\fields\Assets;
+use craft\services\Assets as AssetsService;
+use craft\services\Elements;
+use parallelogram\imagevariants\listeners\AssetEvents;
 use parallelogram\imagevariants\models\Settings;
+use parallelogram\imagevariants\services\Generator;
+use yii\base\Event;
 
 /**
  * Parallelogram Image Variants.
  *
  * Owns the definition, generation, and URL production of responsive image
- * variants. Phases 1–3 establish the package, settings model, and the matrices +
- * field-assignment CP screens; the Twig API, generation, and console command
- * arrive in later phases.
+ * variants. Generation is synchronous (on save/replace) and via the warm
+ * console command — never the queue.
  *
  * @property-read Settings $settings
+ * @property-read Generator $generator
  */
 class Plugin extends BasePlugin
 {
     public string $schemaVersion = '0.1.0';
 
     public bool $hasCpSettings = true;
+
+    public function init(): void
+    {
+        parent::init();
+
+        $this->setComponents([
+            'generator' => Generator::class,
+        ]);
+
+        Event::on(
+            Elements::class,
+            Elements::EVENT_AFTER_SAVE_ELEMENT,
+            [AssetEvents::class, 'handleElementSave']
+        );
+
+        Event::on(
+            AssetsService::class,
+            AssetsService::EVENT_AFTER_REPLACE_ASSET,
+            [AssetEvents::class, 'handleAssetReplace']
+        );
+    }
 
     protected function createSettingsModel(): ?Model
     {
