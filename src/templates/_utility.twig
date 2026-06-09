@@ -101,12 +101,14 @@
         return (f === null || f === field) && (m === null || m === matrix);
     }
 
-    function applyButtons(active) {
+    function applyButtons(active, pending) {
         var warms = active.filter(function (s) { return (s.kind || 'warm') === 'warm'; });
         cells.forEach(function (cell) {
             var field = cell.getAttribute('data-field') || null;
             var matrix = cell.getAttribute('data-matrix') || null;
             var on = warms.some(function (s) { return covers(s, field, matrix); });
+            // The "warm everything" cell also reflects any queued warm.
+            if (!on && field === null && matrix === null && pending.warm > 0) { on = true; }
             var btn = cell.querySelector('button');
             var label = cell.querySelector('.iv-warm-label');
             var spinner = cell.querySelector('.iv-warm-spinner');
@@ -116,20 +118,15 @@
             if (spinner) { spinner.classList.toggle('hidden', !on); }
         });
 
-        var auditing = active.some(function (s) { return (s.kind || 'warm') === 'audit'; });
+        var auditing = active.some(function (s) { return (s.kind || 'warm') === 'audit'; }) || pending.audit > 0;
         auditBtn.disabled = auditing;
         auditBtn.classList.toggle('disabled', auditing);
         auditBtn.querySelector('.iv-audit-label').textContent = auditing ? Craft.t('image-variants', 'Auditing…') : Craft.t('image-variants', 'Audit coverage');
         auditBtn.querySelector('.iv-audit-spinner').classList.toggle('hidden', !auditing);
     }
 
-    function renderProgress(active, now) {
-        if (!active.length) {
-            panel.innerHTML = '';
-            stopForm.classList.add('hidden');
-            return;
-        }
-        panel.innerHTML = active.map(function (s) {
+    function renderProgress(active, pending, now) {
+        var html = active.map(function (s) {
             var total = s.total || 0, processed = s.processed || 0;
             var pct = total ? Math.round(processed / total * 100) : 0;
             var verb = (s.kind || 'warm') === 'audit' ? Craft.t('image-variants', 'Auditing') : Craft.t('image-variants', 'Warming');
@@ -138,9 +135,18 @@
             var stale = age > 30 ? ' <span class="error">(' + Craft.t('image-variants', 'no update for {n}s', { n: age }) + ')</span>' : '';
             return '<div class="iv-warm-row"><strong>' + label + '</strong> — ' + processed + ' / ' + total + ' (' + pct + '%)' + stale +
                 '<div class="iv-warm-bar"><div class="iv-warm-bar-fill" style="width:' + pct + '%"></div></div></div>';
-        }).join('');
-        // Stop is for warms only.
-        stopForm.classList.toggle('hidden', !active.some(function (s) { return (s.kind || 'warm') === 'warm'; }));
+        });
+
+        var queued = [];
+        if (pending.audit > 0) { queued.push(pending.audit + ' ' + Craft.t('image-variants', 'audit')); }
+        if (pending.warm > 0) { queued.push(pending.warm + ' ' + Craft.t('image-variants', 'warm')); }
+        if (queued.length) {
+            html.push('<p class="light">' + Craft.t('image-variants', 'Queued: {list} job(s) — waiting for the queue to run.', { list: queued.join(', ') }) + '</p>');
+        }
+
+        panel.innerHTML = html.join('');
+        // Stop applies to running or queued warms.
+        stopForm.classList.toggle('hidden', !(active.some(function (s) { return (s.kind || 'warm') === 'warm'; }) || pending.warm > 0));
     }
 
     function renderCoverage(coverage, auditedAt, now) {
@@ -179,8 +185,9 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var active = data.active || [];
-                renderProgress(active, data.now || 0);
-                applyButtons(active);
+                var pending = data.pending || { warm: 0, audit: 0 };
+                renderProgress(active, pending, data.now || 0);
+                applyButtons(active, pending);
                 renderCoverage(data.coverage || {}, data.auditedAt || 0, data.now || 0);
             })
             .catch(function () {});

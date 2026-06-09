@@ -46,6 +46,7 @@ class WarmController extends Controller
 
         return $this->asJson([
             'active' => array_values($warmer->activeScopes()),
+            'pending' => $warmer->pendingJobCounts(),
             'now' => time(),
             'coverage' => $audit['report'],
             'auditedAt' => $audit['auditedAt'],

@@ -20,6 +20,9 @@ class Warmer extends Component
     private const STOP_CACHE_KEY = 'image-variants.warm-stop';
     private const AUDIT_CACHE_KEY = 'image-variants.audit';
 
+    /** A marker whose updatedAt is older than this (a live run updates every ~2s) is treated as a dead process and pruned. */
+    private const STALE_AFTER = 60;
+
     /**
      * Merge an audit report into the cached coverage (per matrix), so a partial
      * audit updates only its part. Both the CLI and the job call this.
@@ -59,6 +62,27 @@ class Warmer extends Component
         $ts = Craft::$app->getCache()->get(self::STOP_CACHE_KEY);
 
         return $ts !== false && $ts !== null && (int)$ts >= $startedAt;
+    }
+
+    /**
+     * Counts of queued-but-not-yet-running jobs, so the CP can show a "queued,
+     * waiting for the queue" state before a job starts (and thus before any
+     * active marker exists).
+     *
+     * @return array{warm: int, audit: int}
+     */
+    public function pendingJobCounts(): array
+    {
+        $count = static fn(string $needle): int => (int)(new Query())
+            ->from([Table::QUEUE])
+            ->where(['like', 'job', $needle])
+            ->andWhere(['dateReserved' => null])
+            ->count();
+
+        return [
+            'warm' => $count('WarmJob'),
+            'audit' => $count('AuditJob'),
+        ];
     }
 
     /**
@@ -134,7 +158,17 @@ class Warmer extends Component
      */
     public function activeScopes(): array
     {
-        return Craft::$app->getCache()->get(self::ACTIVE_CACHE_KEY) ?: [];
+        $active = Craft::$app->getCache()->get(self::ACTIVE_CACHE_KEY) ?: [];
+        $cutoff = time() - self::STALE_AFTER;
+
+        $live = array_filter($active, static fn($scope) => ($scope['updatedAt'] ?? 0) >= $cutoff);
+
+        // Drop markers left behind by a killed process, so buttons don't stick.
+        if (count($live) !== count($active)) {
+            Craft::$app->getCache()->set(self::ACTIVE_CACHE_KEY, $live, 3600);
+        }
+
+        return $live;
     }
 
     /**
