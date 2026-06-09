@@ -68,6 +68,15 @@ class Settings extends Model
      */
     public array $matrixRows = [];
 
+    /**
+     * Transient field-assignment payload posted by the CP; converted into
+     * {@see $fieldAssignments} in {@see beforeValidate()} and never persisted.
+     * The `__submitted` marker lets a fully-cleared form replace the map.
+     *
+     * @var array<string, mixed>
+     */
+    public array $fieldAssignmentInput = [];
+
     public function init(): void
     {
         parent::init();
@@ -84,8 +93,9 @@ class Settings extends Model
     public function rules(): array
     {
         return [
-            [['defaults', 'matrices', 'fieldAssignments', 'matrixRows', 'formatQuality'], 'safe'],
+            [['defaults', 'matrices', 'fieldAssignments', 'matrixRows', 'fieldAssignmentInput', 'formatQuality'], 'safe'],
             ['matrices', 'validateMatrices'],
+            ['fieldAssignments', 'validateAssignments'],
             ['formatQuality', 'validateFormatQuality'],
         ];
     }
@@ -96,7 +106,7 @@ class Settings extends Model
     public function fields(): array
     {
         $fields = parent::fields();
-        unset($fields['matrixRows']);
+        unset($fields['matrixRows'], $fields['fieldAssignmentInput']);
 
         return $fields;
     }
@@ -105,6 +115,10 @@ class Settings extends Model
     {
         if ($this->matrixRows !== []) {
             $this->matrices = self::matricesFromRows($this->matrixRows);
+        }
+
+        if (isset($this->fieldAssignmentInput['__submitted'])) {
+            $this->fieldAssignments = self::assignmentsFromInput($this->fieldAssignmentInput);
         }
 
         $this->formatQuality = array_map(static fn($q) => (int)$q, $this->formatQuality);
@@ -174,6 +188,47 @@ class Settings extends Model
                 $this->addError('formatQuality', ucfirst($format) . ' quality must be between 1 and 100.');
             }
         }
+    }
+
+    /**
+     * Every assigned matrix handle must exist.
+     */
+    public function validateAssignments(): void
+    {
+        foreach ($this->fieldAssignments as $field => $handles) {
+            foreach ((array)$handles as $handle) {
+                if (!isset($this->matrices[$handle])) {
+                    $this->addError('fieldAssignments', "Field “{$field}” references unknown matrix “{$handle}”.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Rebuild the canonical field→matrices map from the posted CP payload.
+     * Fields with nothing ticked are dropped.
+     *
+     * @param array<string, mixed> $input
+     * @return array<string, string[]>
+     */
+    public static function assignmentsFromInput(array $input): array
+    {
+        unset($input['__submitted']);
+
+        $assignments = [];
+
+        foreach ($input as $field => $handles) {
+            $handles = array_values(array_filter(
+                array_map('strval', (array)$handles),
+                static fn($handle) => $handle !== ''
+            ));
+
+            if ($handles !== []) {
+                $assignments[$field] = $handles;
+            }
+        }
+
+        return $assignments;
     }
 
     /**

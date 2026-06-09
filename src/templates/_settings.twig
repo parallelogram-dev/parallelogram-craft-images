@@ -55,9 +55,29 @@
 <hr>
 
 <h2>{{ 'Field assignments'|t('image-variants') }}</h2>
-<p class="light">{{ 'Read-only for now — the editable assignment screen arrives in Phase 3.'|t('image-variants') }}</p>
-<ul>
-    {% for field, keys in settings.fieldAssignments %}
-        <li><code>{{ field }}</code> &rarr; {{ keys | join(', ') }}</li>
-    {% endfor %}
-</ul>
+<p class="instructions">{{ 'Tick which matrices each Asset field may render with. A field can allow several — the template picks one by key, and a render call using a key not ticked here will throw.'|t('image-variants') }}</p>
+
+{% set matrixOptions = [] %}
+{% for handle in matrixHandles %}
+    {% set matrixOptions = matrixOptions | merge([{ label: handle, value: handle }]) %}
+{% endfor %}
+
+<input type="hidden" name="fieldAssignmentInput[__submitted]" value="1">
+
+{% for field in assetFields %}
+    {{ forms.checkboxSelectField({
+        label: field.name ~ ' — ' ~ field.handle,
+        id: 'assign-' ~ field.handle,
+        name: 'fieldAssignmentInput[' ~ field.handle ~ ']',
+        options: matrixOptions,
+        values: settings.fieldAssignments[field.handle] ?? []
+    }) }}
+{% else %}
+    <p class="light">{{ 'No Asset fields found.'|t('image-variants') }}</p>
+{% endfor %}
+
+{% if settings.getErrors('fieldAssignments') %}
+    <ul class="errors">
+        {% for error in settings.getErrors('fieldAssignments') %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+{% endif %}
