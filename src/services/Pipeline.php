@@ -48,7 +48,11 @@ class Pipeline extends Component
         $settings = Plugin::getInstance()->getSettings();
         $paths = Plugin::getInstance()->paths;
 
-        [$supported, $unhandled] = $this->partition($transforms);
+        // Centre-crop only when the asset has no custom focal point; otherwise
+        // defer crops to Craft, which crops around the focal point.
+        $allowCrop = !$asset->getHasFocalPoint();
+
+        [$supported, $unhandled] = $this->partition($transforms, $allowCrop);
 
         // Idempotent, like the slow path: leave outputs that already exist and
         // are usable. rebuild() deletes first when a true refresh is wanted.
@@ -91,14 +95,15 @@ class Pipeline extends Component
     }
 
     /**
-     * Split transforms into those the fast path can produce (a proportional
-     * scale: width-only, height-only, or width+height "fit") and those it must
-     * defer to Craft (crop/stretch/letterbox with both dimensions).
+     * Split transforms into those the fast path can produce and those it must
+     * defer to Craft. Handled: a proportional scale (width-only, height-only, or
+     * width+height "fit"), and — when $allowCrop — a width+height centre "crop".
+     * Deferred: stretch/letterbox, and crop when a focal point is in play.
      *
      * @param array<int, array<string, mixed>> $transforms
      * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
      */
-    private function partition(array $transforms): array
+    private function partition(array $transforms, bool $allowCrop): array
     {
         $supported = [];
         $unhandled = [];
@@ -109,8 +114,9 @@ class Pipeline extends Component
             $mode = $transform['mode'] ?? 'crop';
 
             $isScale = ($hasWidth xor $hasHeight) || ($hasWidth && $hasHeight && $mode === 'fit');
+            $isCrop = $hasWidth && $hasHeight && $mode === 'crop' && $allowCrop;
 
-            if ($isScale) {
+            if ($isScale || $isCrop) {
                 $supported[] = $transform;
             } else {
                 $unhandled[] = $transform;
@@ -155,12 +161,9 @@ class Pipeline extends Component
         bool $upscale,
         float $sharpenAmount
     ): array {
-        $first = $group[0];
-        [$width, $height] = $this->targetDimensions($first, $sourceWidth, $sourceHeight, $upscale);
-
         $resized = clone $source;
         try {
-            $resized->resizeImage($width, $height, Imagick::FILTER_LANCZOS, 1);
+            $this->applyGeometry($resized, $group[0], $sourceWidth, $sourceHeight, $upscale);
 
             if ($sharpenAmount > 0) {
                 $resized->unsharpMaskImage(0, 0.7, $sharpenAmount, 0);
@@ -178,6 +181,54 @@ class Pipeline extends Component
         } finally {
             $resized->clear();
         }
+    }
+
+    /**
+     * Resize (and, for a width+height crop, centre-crop) the image in place to
+     * the transform's geometry.
+     *
+     * @param array<string, mixed> $transform
+     */
+    private function applyGeometry(Imagick $image, array $transform, int $sourceWidth, int $sourceHeight, bool $upscale): void
+    {
+        $hasWidth = !empty($transform['width']);
+        $hasHeight = !empty($transform['height']);
+        $mode = $transform['mode'] ?? 'crop';
+
+        if ($hasWidth && $hasHeight && $mode === 'crop') {
+            $this->coverCrop($image, (int)$transform['width'], (int)$transform['height'], $sourceWidth, $sourceHeight, $upscale);
+            return;
+        }
+
+        [$width, $height] = $this->targetDimensions($transform, $sourceWidth, $sourceHeight, $upscale);
+        $image->resizeImage($width, $height, Imagick::FILTER_LANCZOS, 1);
+    }
+
+    /**
+     * Scale to cover the target box (Lanczos) then centre-crop to it — matching
+     * Craft's center-center crop and CSS object-fit: cover. Honours
+     * upscaleImages: when off, never enlarges past the source.
+     */
+    private function coverCrop(Imagick $image, int $targetW, int $targetH, int $sourceWidth, int $sourceHeight, bool $upscale): void
+    {
+        $scale = max($targetW / $sourceWidth, $targetH / $sourceHeight);
+        if (!$upscale) {
+            $scale = min($scale, 1.0);
+        }
+
+        $scaledW = max(1, (int)ceil($sourceWidth * $scale));
+        $scaledH = max(1, (int)ceil($sourceHeight * $scale));
+        $image->resizeImage($scaledW, $scaledH, Imagick::FILTER_LANCZOS, 1);
+
+        // With upscaling off, the source may not cover the box; clamp the crop
+        // to what's available so it stays in bounds.
+        $cropW = min($targetW, $scaledW);
+        $cropH = min($targetH, $scaledH);
+        $x = (int)max(0, round(($scaledW - $cropW) / 2));
+        $y = (int)max(0, round(($scaledH - $cropH) / 2));
+
+        $image->cropImage($cropW, $cropH, $x, $y);
+        $image->setImagePage($cropW, $cropH, 0, 0);
     }
 
     /**
@@ -286,15 +337,14 @@ class Pipeline extends Component
                 $this->toSrgb($source);
             }
 
-            [$width, $height] = $this->targetDimensions(
+            $resized = clone $source;
+            $this->applyGeometry(
+                $resized,
                 $transform,
                 $source->getImageWidth(),
                 $source->getImageHeight(),
                 Craft::$app->getConfig()->getGeneral()->upscaleImages
             );
-
-            $resized = clone $source;
-            $resized->resizeImage($width, $height, Imagick::FILTER_LANCZOS, 1);
 
             $amount = (float)$settings->sharpenAmount;
             if ($amount > 0) {

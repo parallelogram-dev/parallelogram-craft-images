@@ -261,9 +261,9 @@ class Settings extends Model
     }
 
     /**
-     * Convert posted editableTable rows into the canonical matrices map.
-     * Phase 2 edits width-based variants; richer per-variant height/mode stays
-     * available through the config file.
+     * Convert posted editableTable rows into the canonical matrices map. Each
+     * variant may be a width, a width×height pair (cropped to the matrix mode),
+     * or a height-only value — see {@see parseDimensions()}.
      *
      * @param array<int, array<string, mixed>> $rows
      * @return array<string, array<string, mixed>>
@@ -278,11 +278,6 @@ class Settings extends Model
                 continue;
             }
 
-            $widths = array_values(array_filter(
-                array_map(static fn($w) => (int)trim((string)$w), explode(',', (string)($row['widths'] ?? ''))),
-                static fn($w) => $w > 0
-            ));
-
             $formats = array_values(array_filter(
                 self::ALLOWED_FORMATS,
                 static fn($format) => !empty($row[$format])
@@ -290,7 +285,7 @@ class Settings extends Model
 
             $matrix = [
                 'sizes' => trim((string)($row['sizes'] ?? '')),
-                'variants' => array_map(static fn($w) => ['width' => $w], $widths),
+                'variants' => self::parseDimensions((string)($row['dimensions'] ?? '')),
                 'formats' => $formats,
             ];
 
@@ -302,6 +297,69 @@ class Settings extends Model
         }
 
         return $matrices;
+    }
+
+    /**
+     * Parse a comma-separated dimensions string into variant definitions. Each
+     * token is a width, a width×height pair, or a height-only value:
+     *   640      → width 640 (height scales proportionally)
+     *   800x600  → width 800, height 600 (cropped to the matrix mode)
+     *   x600     → height 600 (width scales proportionally)
+     * Either `x` or `×` separates the pair. Empty/invalid tokens are skipped.
+     *
+     * @return array<int, array<string, int>>
+     */
+    public static function parseDimensions(string $value): array
+    {
+        $variants = [];
+
+        foreach (explode(',', $value) as $token) {
+            $token = strtolower(trim(str_replace('×', 'x', $token)));
+            if ($token === '') {
+                continue;
+            }
+
+            [$w, $h] = array_pad(explode('x', $token, 2), 2, '');
+            $width = (int)trim($w);
+            $height = (int)trim($h);
+
+            $variant = [];
+            if ($width > 0) {
+                $variant['width'] = $width;
+            }
+            if ($height > 0) {
+                $variant['height'] = $height;
+            }
+
+            if ($variant !== []) {
+                $variants[] = $variant;
+            }
+        }
+
+        return $variants;
+    }
+
+    /**
+     * Render one variant back to its compact token (640, 800x600, or x600).
+     *
+     * @param array<string, int> $variant
+     */
+    private static function dimensionToken(array $variant): string
+    {
+        $width = $variant['width'] ?? null;
+        $height = $variant['height'] ?? null;
+
+        if ($width && $height) {
+            return $width . 'x' . $height;
+        }
+        if ($width) {
+            return (string)$width;
+        }
+        if ($height) {
+            return 'x' . $height;
+        }
+
+        return '';
     }
 
     /**
@@ -319,10 +377,10 @@ class Settings extends Model
             $row = [
                 'handle' => $handle,
                 'sizes' => $matrix['sizes'] ?? '',
-                'widths' => implode(',', array_map(
-                    static fn($variant) => $variant['width'] ?? '',
+                'dimensions' => implode(', ', array_filter(array_map(
+                    static fn($variant) => self::dimensionToken($variant),
                     $matrix['variants'] ?? []
-                )),
+                ))),
                 'mode' => $matrix['mode'] ?? $this->defaults['mode'] ?? 'crop',
             ];
 
