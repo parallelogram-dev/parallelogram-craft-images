@@ -140,6 +140,23 @@ class Settings extends Model
         return $fields;
     }
 
+    /**
+     * @param array<int, string> $fields
+     * @param array<int, string> $expand
+     * @return array<string, mixed>
+     */
+    public function toArray(array $fields = [], array $expand = [], $recursive = true): array
+    {
+        if ($fields !== []) {
+            $fields = array_merge(
+                array_diff($fields, ['matrixRows', 'fieldAssignmentInput']),
+                ['matrices', 'fieldAssignments'],
+            );
+        }
+
+        return parent::toArray($fields, $expand, $recursive);
+    }
+
     public function beforeValidate(): bool
     {
         if ($this->matrixRows !== []) {
@@ -149,6 +166,8 @@ class Settings extends Model
         if (isset($this->fieldAssignmentInput['__submitted'])) {
             $this->fieldAssignments = self::assignmentsFromInput($this->fieldAssignmentInput);
         }
+
+        $this->fieldAssignments = self::pruneAssignments($this->fieldAssignments, $this->matrices);
 
         $this->formatQuality = array_map(static fn($q) => (int)$q, $this->formatQuality);
 
@@ -258,6 +277,33 @@ class Settings extends Model
         }
 
         return $assignments;
+    }
+
+    /**
+     * Drop assigned handles whose matrix no longer exists, and any field left
+     * with none, so deleting a matrix cleans up its references instead of
+     * blocking the save.
+     *
+     * @param array<string, string[]> $assignments
+     * @param array<string, array<string, mixed>> $matrices
+     * @return array<string, string[]>
+     */
+    private static function pruneAssignments(array $assignments, array $matrices): array
+    {
+        $pruned = [];
+
+        foreach ($assignments as $field => $handles) {
+            $valid = array_values(array_filter(
+                $handles,
+                static fn(string $handle) => isset($matrices[$handle])
+            ));
+
+            if ($valid !== []) {
+                $pruned[$field] = $valid;
+            }
+        }
+
+        return $pruned;
     }
 
     /**

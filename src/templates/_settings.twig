@@ -1,131 +1,162 @@
 {% import "_includes/forms" as forms %}
 
-{{ forms.editableTableField({
-    label: 'Variant matrices'|t('image-variants'),
-    instructions: 'Each row is a named matrix. Tick the formats to generate. Dimensions are comma-separated: a width (`960`), a width×height pair that crops to the row’s Mode (`800x600`), or a height-only value (`x600`).'|t('image-variants'),
-    id: 'matrixRows',
-    name: 'matrixRows',
-    cols: {
-        handle: { type: 'singleline', heading: 'Handle'|t('image-variants'), width: '12%', placeholder: 'card' },
-        sizes: { type: 'singleline', heading: 'Sizes'|t('image-variants'), placeholder: '100vw' },
-        dimensions: { type: 'singleline', heading: 'Dimensions'|t('image-variants'), placeholder: '480, 800x600, x960' },
-        avif: { type: 'checkbox', heading: 'AVIF'|t('image-variants') },
-        webp: { type: 'checkbox', heading: 'WebP'|t('image-variants') },
-        jpg: { type: 'checkbox', heading: 'JPG'|t('image-variants') },
-        png: { type: 'checkbox', heading: 'PNG'|t('image-variants') },
-        mode: { type: 'select', heading: 'Mode'|t('image-variants'), width: '12%', options: [
-            { label: 'Crop', value: 'crop' },
-            { label: 'Fit', value: 'fit' },
-            { label: 'Stretch', value: 'stretch' },
-            { label: 'Letterbox', value: 'letterbox' }
-        ] }
-    },
-    rows: settings.matrixRowsForDisplay,
-    addRowLabel: 'Add a matrix'|t('image-variants'),
-    allowAdd: true,
-    allowDelete: true,
-    errors: settings.getErrors('matrices')
-}) }}
-
-<hr>
-
-<h2>{{ 'Format quality'|t('image-variants') }}</h2>
-<p class="instructions">{{ 'Encoder quality per format (1–100), applied to every matrix. The same number means different things per format — AVIF and WebP reach comparable quality at far lower values than JPG.'|t('image-variants') }}</p>
-
-<div class="flex">
-    {% for format, quality in settings.formatQuality %}
-        {{ forms.textField({
-            label: format | upper,
-            id: 'formatQuality-' ~ format,
-            name: 'formatQuality[' ~ format ~ ']',
-            value: quality,
-            type: 'number',
-            min: 1,
-            max: 100,
-            size: 4
-        }) }}
-    {% endfor %}
+<div class="btngroup iv-tabs">
+    <button type="button" class="btn iv-tab sel" data-pane="assignments">{{ 'Field assignments'|t('image-variants') }}</button>
+    <button type="button" class="btn iv-tab" data-pane="matrices">{{ 'Variant matrices'|t('image-variants') }}</button>
+    <button type="button" class="btn iv-tab" data-pane="other">{{ 'Other settings'|t('image-variants') }}</button>
 </div>
-{% if settings.getErrors('formatQuality') %}
-    <ul class="errors">
-        {% for error in settings.getErrors('formatQuality') %}<li>{{ error }}</li>{% endfor %}
-    </ul>
-{% endif %}
 
-<hr>
+<div class="iv-pane" data-pane="assignments">
+    <p class="instructions">{{ 'Choose which matrices each Asset field can use. Click a field to add one, or click the × on a tag to remove it. When a template renders an image it picks one of the matrices listed here.'|t('image-variants') }}</p>
 
-<h2>{{ 'Performance'|t('image-variants') }}</h2>
-{{ forms.textField({
-    label: 'ImageMagick thread limit'|t('image-variants'),
-    instructions: 'Threads each encode may use (OpenMP). 0 leaves ImageMagick’s own default. Higher speeds AVIF on multi-core servers — keep it a few below your core count. One process either way (no extra processes spawned).'|t('image-variants'),
-    id: 'threadLimit',
-    name: 'threadLimit',
-    value: settings.threadLimit,
-    type: 'number',
-    min: 0,
-    max: 64,
-    size: 4,
-    errors: settings.getErrors('threadLimit')
-}) }}
+    {% set matrixOptions = [] %}
+    {% for handle in matrixHandles %}
+        {% set matrixOptions = matrixOptions | merge([{ label: handle|capitalize, value: handle }]) %}
+    {% endfor %}
 
-{{ forms.lightswitchField({
-    label: 'Fast generation pipeline'|t('image-variants'),
-    instructions: 'Decode each source once and resize every output from it, instead of one Craft transform per output. Much faster when warming. Any geometry it cannot handle falls back to Craft automatically.'|t('image-variants'),
-    id: 'fastGenerate',
-    name: 'fastGenerate',
-    on: settings.fastGenerate,
-    errors: settings.getErrors('fastGenerate')
-}) }}
+    <input type="hidden" name="fieldAssignmentInput[__submitted]" value="1">
 
-{{ forms.lightswitchField({
-    label: 'Convert to sRGB'|t('image-variants'),
-    instructions: 'Convert each source to the sRGB colour profile before resizing, so wide-gamut originals render predictably on the web. Applies to the fast pipeline only.'|t('image-variants'),
-    id: 'convertToSrgb',
-    name: 'convertToSrgb',
-    on: settings.convertToSrgb,
-    errors: settings.getErrors('convertToSrgb')
-}) }}
+    {% for field in assetFields %}
+        {{ forms.selectizeField({
+            label: field.name ~ ' — ' ~ field.handle,
+            id: 'assign-' ~ field.handle,
+            name: 'fieldAssignmentInput[' ~ field.handle ~ ']',
+            multi: true,
+            options: matrixOptions,
+            values: settings.fieldAssignments[field.handle] ?? []
+        }) }}
+    {% else %}
+        <p class="light">{{ 'No Asset fields found.'|t('image-variants') }}</p>
+    {% endfor %}
 
-{{ forms.textField({
-    label: 'Sharpen amount'|t('image-variants'),
-    instructions: 'Unsharp-mask strength applied once per resized size (0 disables). A gentle value (≈0.5) recovers the softness a downscale introduces without haloing. Fast pipeline only.'|t('image-variants'),
-    id: 'sharpenAmount',
-    name: 'sharpenAmount',
-    value: settings.sharpenAmount,
-    type: 'number',
-    min: 0,
-    max: 5,
-    step: 0.1,
-    size: 4,
-    errors: settings.getErrors('sharpenAmount')
-}) }}
+    {% if settings.getErrors('fieldAssignments') %}
+        <ul class="errors">
+            {% for error in settings.getErrors('fieldAssignments') %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+    {% endif %}
+</div>
 
-<hr>
-
-<h2>{{ 'Field assignments'|t('image-variants') }}</h2>
-<p class="instructions">{{ 'Tick which matrices each Asset field may render with. A field can allow several — the template picks one by key, and a render call using a key not ticked here will throw.'|t('image-variants') }}</p>
-
-{% set matrixOptions = [] %}
-{% for handle in matrixHandles %}
-    {% set matrixOptions = matrixOptions | merge([{ label: handle, value: handle }]) %}
-{% endfor %}
-
-<input type="hidden" name="fieldAssignmentInput[__submitted]" value="1">
-
-{% for field in assetFields %}
-    {{ forms.checkboxSelectField({
-        label: field.name ~ ' — ' ~ field.handle,
-        id: 'assign-' ~ field.handle,
-        name: 'fieldAssignmentInput[' ~ field.handle ~ ']',
-        options: matrixOptions,
-        values: settings.fieldAssignments[field.handle] ?? []
+<div class="iv-pane hidden" data-pane="matrices">
+    {{ forms.editableTableField({
+        label: 'Variant matrices'|t('image-variants'),
+        instructions: 'Each row is a named matrix. Tick the formats to generate. Dimensions are comma-separated: a width (`960`), a width×height pair that crops to the row’s Mode (`800x600`), or a height-only value (`x600`).'|t('image-variants'),
+        id: 'matrixRows',
+        name: 'matrixRows',
+        cols: {
+            handle: { type: 'singleline', heading: 'Handle'|t('image-variants'), width: '12%', placeholder: 'card' },
+            sizes: { type: 'singleline', heading: 'Sizes'|t('image-variants'), placeholder: '100vw' },
+            dimensions: { type: 'singleline', heading: 'Dimensions'|t('image-variants'), placeholder: '480, 800x600, x960' },
+            avif: { type: 'checkbox', heading: 'AVIF'|t('image-variants') },
+            webp: { type: 'checkbox', heading: 'WebP'|t('image-variants') },
+            jpg: { type: 'checkbox', heading: 'JPG'|t('image-variants') },
+            png: { type: 'checkbox', heading: 'PNG'|t('image-variants') },
+            mode: { type: 'select', heading: 'Mode'|t('image-variants'), width: '12%', options: [
+                { label: 'Crop', value: 'crop' },
+                { label: 'Fit', value: 'fit' },
+                { label: 'Stretch', value: 'stretch' },
+                { label: 'Letterbox', value: 'letterbox' }
+            ] }
+        },
+        rows: settings.matrixRowsForDisplay,
+        addRowLabel: 'Add a matrix'|t('image-variants'),
+        allowAdd: true,
+        allowDelete: true,
+        errors: settings.getErrors('matrices')
     }) }}
-{% else %}
-    <p class="light">{{ 'No Asset fields found.'|t('image-variants') }}</p>
-{% endfor %}
+</div>
 
-{% if settings.getErrors('fieldAssignments') %}
-    <ul class="errors">
-        {% for error in settings.getErrors('fieldAssignments') %}<li>{{ error }}</li>{% endfor %}
-    </ul>
-{% endif %}
+<div class="iv-pane hidden" data-pane="other">
+    <h2>{{ 'Format quality'|t('image-variants') }}</h2>
+    <p class="instructions">{{ 'Encoder quality per format (1–100), applied to every matrix. The same number means different things per format — AVIF and WebP reach comparable quality at far lower values than JPG.'|t('image-variants') }}</p>
+
+    <div class="flex">
+        {% for format, quality in settings.formatQuality %}
+            {{ forms.textField({
+                label: format | upper,
+                id: 'formatQuality-' ~ format,
+                name: 'formatQuality[' ~ format ~ ']',
+                value: quality,
+                type: 'number',
+                min: 1,
+                max: 100,
+                size: 4
+            }) }}
+        {% endfor %}
+    </div>
+    {% if settings.getErrors('formatQuality') %}
+        <ul class="errors">
+            {% for error in settings.getErrors('formatQuality') %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+    {% endif %}
+
+    <hr>
+
+    <h2>{{ 'Performance'|t('image-variants') }}</h2>
+    {{ forms.textField({
+        label: 'ImageMagick thread limit'|t('image-variants'),
+        instructions: 'Threads each encode may use (OpenMP). 0 leaves ImageMagick’s own default. Higher speeds AVIF on multi-core servers — keep it a few below your core count. One process either way (no extra processes spawned).'|t('image-variants'),
+        id: 'threadLimit',
+        name: 'threadLimit',
+        value: settings.threadLimit,
+        type: 'number',
+        min: 0,
+        max: 64,
+        size: 4,
+        errors: settings.getErrors('threadLimit')
+    }) }}
+
+    {{ forms.lightswitchField({
+        label: 'Fast generation pipeline'|t('image-variants'),
+        instructions: 'Decode each source once and resize every output from it, instead of one Craft transform per output. Much faster when warming. Any geometry it cannot handle falls back to Craft automatically.'|t('image-variants'),
+        id: 'fastGenerate',
+        name: 'fastGenerate',
+        on: settings.fastGenerate,
+        errors: settings.getErrors('fastGenerate')
+    }) }}
+
+    {{ forms.lightswitchField({
+        label: 'Convert to sRGB'|t('image-variants'),
+        instructions: 'Convert each source to the sRGB colour profile before resizing, so wide-gamut originals render predictably on the web. Applies to the fast pipeline only.'|t('image-variants'),
+        id: 'convertToSrgb',
+        name: 'convertToSrgb',
+        on: settings.convertToSrgb,
+        errors: settings.getErrors('convertToSrgb')
+    }) }}
+
+    {{ forms.textField({
+        label: 'Sharpen amount'|t('image-variants'),
+        instructions: 'Unsharp-mask strength applied once per resized size (0 disables). A gentle value (≈0.5) recovers the softness a downscale introduces without haloing. Fast pipeline only.'|t('image-variants'),
+        id: 'sharpenAmount',
+        name: 'sharpenAmount',
+        value: settings.sharpenAmount,
+        type: 'number',
+        min: 0,
+        max: 5,
+        step: 0.1,
+        size: 4,
+        errors: settings.getErrors('sharpenAmount')
+    }) }}
+</div>
+
+{% css %}
+.iv-tabs { margin-bottom: 24px; }
+.iv-pane { margin-top: 0; }
+{% endcss %}
+
+{% js %}
+(function () {
+    var tabs = document.querySelectorAll('.iv-tab');
+    var panes = document.querySelectorAll('.iv-pane');
+    if (!tabs.length) { return; }
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            var target = tab.getAttribute('data-pane');
+            tabs.forEach(function (t) { t.classList.toggle('sel', t === tab); });
+            panes.forEach(function (p) {
+                p.classList.toggle('hidden', p.getAttribute('data-pane') !== target);
+            });
+        });
+    });
+})();
+{% endjs %}

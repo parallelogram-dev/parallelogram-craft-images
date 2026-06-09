@@ -9,7 +9,7 @@
             {% if field %}{{ hiddenInput('field', field) }}{% endif %}
             {% if matrix %}{{ hiddenInput('matrix', matrix) }}{% endif %}
             <button type="submit" class="btn {{ submit ? 'submit' : 'small' }}{{ active ? ' disabled' : '' }}" {{ active ? 'disabled' : '' }}>
-                <span class="iv-warm-label">{{ active ? 'Warming…'|t('image-variants') : label }}</span>
+                <span class="iv-warm-label">{{ active ? 'Rebuilding…'|t('image-variants') : label }}</span>
                 <span class="iv-warm-spinner spinner{{ active ? '' : ' hidden' }}"></span>
             </button>
         </form>
@@ -25,7 +25,7 @@
 
 {% from _self import warmButton, covBadge %}
 
-<p class="instructions">{{ 'Warming runs as one serial process (CLI or queue) — progress below polls a shared record, so it is visible no matter which started it. Audit is read-only: it checks coverage without generating anything, so you only warm when there is a gap.'|t('image-variants') }}</p>
+<p class="instructions">{{ 'Each image needs a few different sizes so your pages load quickly. Use “Audit coverage” to see which images are ready and which still need sizes made — it only checks and never changes your images. If any are missing, Rebuild creates them. You only need to rebuild when something is missing.'|t('image-variants') }}</p>
 
 <div class="iv-toolbar">
     <form method="post" accept-charset="UTF-8" class="iv-inline">
@@ -67,7 +67,7 @@
                 <td><code>{{ row.matrix }}</code></td>
                 <td>{{ row.count }}</td>
                 <td class="iv-cov-cell" data-matrix="{{ row.matrix }}">{{ covBadge(row.coverage) }}</td>
-                <td class="thin">{{ warmButton('Warm'|t('image-variants'), row.field, row.matrix, row.active, false) }}</td>
+                <td class="thin">{{ warmButton('Rebuild'|t('image-variants'), row.field, row.matrix, row.active, false) }}</td>
             </tr>
         {% else %}
             <tr><td colspan="5">{{ 'No field assignments yet.'|t('image-variants') }}</td></tr>
@@ -75,7 +75,7 @@
     </tbody>
 </table>
 
-<p class="buttons">{{ warmButton('Warm everything'|t('image-variants'), '', '', anyActive, true) }}</p>
+<p class="buttons">{{ warmButton('Rebuild everything'|t('image-variants'), '', '', anyActive, true) }}</p>
 
 {% css %}
 .iv-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
@@ -120,7 +120,7 @@
             var spinner = cell.querySelector('.iv-warm-spinner');
             btn.disabled = on;
             btn.classList.toggle('disabled', on);
-            if (label) { label.textContent = on ? Craft.t('image-variants', 'Warming…') : btn.getAttribute('data-label'); }
+            if (label) { label.textContent = on ? Craft.t('image-variants', 'Rebuilding…') : btn.getAttribute('data-label'); }
             if (spinner) { spinner.classList.toggle('hidden', !on); }
         });
 
@@ -139,7 +139,7 @@
         var html = active.map(function (s) {
             var total = s.total || 0, processed = s.processed || 0;
             var pct = total ? Math.round(processed / total * 100) : 0;
-            var verb = (s.kind || 'warm') === 'audit' ? Craft.t('image-variants', 'Auditing') : Craft.t('image-variants', 'Warming');
+            var verb = (s.kind || 'warm') === 'audit' ? Craft.t('image-variants', 'Auditing') : Craft.t('image-variants', 'Rebuilding');
             var label = verb + ' ' + (s.field || 'all fields') + ' / ' + (s.matrix || 'all matrices');
             var age = now - (s.updatedAt || now);
             var stale = age > 30 ? ' <span class="error">(' + Craft.t('image-variants', 'no update for {n}s', { n: age }) + ')</span>' : '';
@@ -149,7 +149,7 @@
 
         var queued = [];
         if (pending.audit > 0) { queued.push(pending.audit + ' ' + Craft.t('image-variants', 'audit')); }
-        if (pending.warm > 0) { queued.push(pending.warm + ' ' + Craft.t('image-variants', 'warm')); }
+        if (pending.warm > 0) { queued.push(pending.warm + ' ' + Craft.t('image-variants', 'rebuild')); }
         if (queued.length) {
             html.push('<p class="light">' + Craft.t('image-variants', 'Queued: {list} job(s) — waiting for the queue to run.', { list: queued.join(', ') }) + '</p>');
         }
@@ -182,11 +182,11 @@
         var form = cell.querySelector('form');
         if (!btn || !form) { return; }
         var label = cell.querySelector('.iv-warm-label');
-        btn.setAttribute('data-label', label ? label.textContent.trim() : 'Warm');
+        btn.setAttribute('data-label', label ? label.textContent.trim() : 'Rebuild');
         form.addEventListener('submit', function () {
             btn.disabled = true;
             btn.classList.add('disabled');
-            if (label) { label.textContent = Craft.t('image-variants', 'Warming…'); }
+            if (label) { label.textContent = Craft.t('image-variants', 'Rebuilding…'); }
             var sp = cell.querySelector('.iv-warm-spinner');
             if (sp) { sp.classList.remove('hidden'); }
         });

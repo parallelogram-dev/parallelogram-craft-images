@@ -29,7 +29,7 @@ class WarmController extends Controller
             'volume' => $volume,
         ]));
 
-        $this->setSuccessFlash(Craft::t('image-variants', 'Warming job queued.'));
+        $this->setSuccessFlash(Craft::t('image-variants', 'Rebuilding job queued.'));
 
         return $this->redirectToPostedUrl();
     }
@@ -91,7 +91,7 @@ class WarmController extends Controller
         $warmer->requestStop();
         $cleared = $warmer->clearPendingJobs();
 
-        $this->setSuccessFlash(Craft::t('image-variants', 'Stopping — the running warm will halt and {n} pending job(s) were cleared.', [
+        $this->setSuccessFlash(Craft::t('image-variants', 'Stopping — the running rebuild will halt and {n} pending job(s) were cleared.', [
             'n' => $cleared,
         ]));
 
