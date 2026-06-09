@@ -19,6 +19,7 @@ use parallelogram\imagevariants\listeners\AssetEvents;
 use parallelogram\imagevariants\models\Settings;
 use parallelogram\imagevariants\services\Generator;
 use parallelogram\imagevariants\services\PathBuilder;
+use parallelogram\imagevariants\services\Pipeline;
 use parallelogram\imagevariants\services\Resolver;
 use parallelogram\imagevariants\services\Warmer;
 use parallelogram\imagevariants\utilities\WarmUtility;
@@ -36,6 +37,7 @@ use yii\base\Event;
  * @property-read Settings $settings
  * @property-read Generator $generator
  * @property-read PathBuilder $paths
+ * @property-read Pipeline $pipeline
  * @property-read Resolver $resolver
  * @property-read Warmer $warmer
  */
@@ -52,6 +54,7 @@ class Plugin extends BasePlugin
         $this->setComponents([
             'generator' => Generator::class,
             'paths' => PathBuilder::class,
+            'pipeline' => Pipeline::class,
             'resolver' => Resolver::class,
             'warmer' => Warmer::class,
         ]);

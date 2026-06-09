@@ -39,6 +39,26 @@ class Settings extends Model
     public int $threadLimit = 0;
 
     /**
+     * Use the in-process Imagick pipeline (decode once, resize each output from
+     * the full-res source) instead of one Craft transform call per output. Much
+     * faster on warming; falls back to Craft per-output for any geometry it does
+     * not handle.
+     */
+    public bool $fastGenerate = true;
+
+    /**
+     * Convert each source to the sRGB colour profile before resizing, so
+     * wide-gamut originals render predictably on the web. Applied once per asset.
+     */
+    public bool $convertToSrgb = true;
+
+    /**
+     * Unsharp-mask amount applied once per resized geometry (0 disables). A
+     * gentle value recovers the softness a downscale introduces without haloing.
+     */
+    public float $sharpenAmount = 0.5;
+
+    /**
      * Encoder quality per format (1–100), applied globally.
      *
      * @var array<string, int>
@@ -104,6 +124,8 @@ class Settings extends Model
             ['fieldAssignments', 'validateAssignments'],
             ['formatQuality', 'validateFormatQuality'],
             ['threadLimit', 'integer', 'min' => 0, 'max' => 64],
+            [['fastGenerate', 'convertToSrgb'], 'boolean'],
+            ['sharpenAmount', 'number', 'min' => 0, 'max' => 5],
         ];
     }
 

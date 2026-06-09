@@ -31,9 +31,30 @@ class Generator extends Component
 
         $this->applyThreadLimit();
 
-        $count = 0;
+        $transforms = $this->transformsFor($matrixHandles);
+        $settings = Plugin::getInstance()->getSettings();
 
-        foreach ($this->transformsFor($matrixHandles) as $transform) {
+        $count = 0;
+        $remaining = $transforms;
+
+        if ($settings->fastGenerate && extension_loaded('imagick')) {
+            try {
+                $remaining = Plugin::getInstance()->pipeline->process($asset, $transforms);
+                $count += count($transforms) - count($remaining);
+            } catch (Throwable $e) {
+                Craft::warning(
+                    sprintf(
+                        'Image Variants: fast pipeline failed for asset %d, falling back to Craft: %s',
+                        $asset->id,
+                        $e->getMessage()
+                    ),
+                    __METHOD__
+                );
+                $remaining = $transforms;
+            }
+        }
+
+        foreach ($remaining as $transform) {
             try {
                 $asset->getUrl($transform, true);
                 $count++;

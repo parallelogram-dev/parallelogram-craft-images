@@ -68,6 +68,38 @@
     errors: settings.getErrors('threadLimit')
 }) }}
 
+{{ forms.lightswitchField({
+    label: 'Fast generation pipeline'|t('image-variants'),
+    instructions: 'Decode each source once and resize every output from it, instead of one Craft transform per output. Much faster when warming. Any geometry it cannot handle falls back to Craft automatically.'|t('image-variants'),
+    id: 'fastGenerate',
+    name: 'fastGenerate',
+    on: settings.fastGenerate,
+    errors: settings.getErrors('fastGenerate')
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Convert to sRGB'|t('image-variants'),
+    instructions: 'Convert each source to the sRGB colour profile before resizing, so wide-gamut originals render predictably on the web. Applies to the fast pipeline only.'|t('image-variants'),
+    id: 'convertToSrgb',
+    name: 'convertToSrgb',
+    on: settings.convertToSrgb,
+    errors: settings.getErrors('convertToSrgb')
+}) }}
+
+{{ forms.textField({
+    label: 'Sharpen amount'|t('image-variants'),
+    instructions: 'Unsharp-mask strength applied once per resized size (0 disables). A gentle value (≈0.5) recovers the softness a downscale introduces without haloing. Fast pipeline only.'|t('image-variants'),
+    id: 'sharpenAmount',
+    name: 'sharpenAmount',
+    value: settings.sharpenAmount,
+    type: 'number',
+    min: 0,
+    max: 5,
+    step: 0.1,
+    size: 4,
+    errors: settings.getErrors('sharpenAmount')
+}) }}
+
 <hr>
 
 <h2>{{ 'Field assignments'|t('image-variants') }}</h2>
