@@ -372,6 +372,11 @@ class Warmer extends Component
             }
         }
 
+        // Refresh coverage for the warmed scope so the CP badges self-update.
+        if ($tracked) {
+            $this->audit($scope['field'] ?? null, $scope['matrix'] ?? null, $scope['volume'] ?? null);
+        }
+
         return $variants;
     }
 
