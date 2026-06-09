@@ -3,8 +3,8 @@
 namespace parallelogram\imagevariants\controllers;
 
 use Craft;
+use craft\helpers\App;
 use craft\web\Controller;
-use parallelogram\imagevariants\jobs\AuditJob;
 use parallelogram\imagevariants\jobs\WarmJob;
 use yii\web\Response;
 
@@ -54,19 +54,26 @@ class WarmController extends Controller
     }
 
     /**
-     * Enqueue a coverage audit (read-only — no generation).
+     * Run a coverage audit synchronously (read-only — no generation, no queue),
+     * so it works without a queue worker and returns a result immediately.
      */
     public function actionAudit(): ?Response
     {
         $this->requirePostRequest();
         $this->requirePermission('utility:image-variants-warm');
 
-        Craft::$app->getQueue()->push(new AuditJob([
-            'field' => $this->request->getBodyParam('field') ?: null,
-            'matrix' => $this->request->getBodyParam('matrix') ?: null,
-        ]));
+        App::maxPowerCaptain();
 
-        $this->setSuccessFlash(Craft::t('image-variants', 'Audit queued.'));
+        $report = Plugin::getInstance()->warmer->audit(
+            $this->request->getBodyParam('field') ?: null,
+            $this->request->getBodyParam('matrix') ?: null,
+        );
+
+        $missing = array_sum(array_map(static fn(array $row) => $row['missing'], $report));
+
+        $this->setSuccessFlash($missing === 0
+            ? Craft::t('image-variants', 'Audit complete — all variants present.')
+            : Craft::t('image-variants', 'Audit complete — {n} transform(s) missing.', ['n' => $missing]));
 
         return $this->redirectToPostedUrl();
     }
