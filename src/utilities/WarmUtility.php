@@ -29,8 +29,16 @@ class WarmUtility extends Utility
 
     public static function contentHtml(): string
     {
+        $warmer = Plugin::getInstance()->warmer;
+
+        $rows = array_map(static function(array $row) use ($warmer): array {
+            $row['active'] = $warmer->isActive($row['field'], $row['matrix']);
+            return $row;
+        }, $warmer->summary());
+
         return Craft::$app->getView()->renderTemplate('image-variants/_utility', [
-            'rows' => Plugin::getInstance()->warmer->summary(),
+            'rows' => $rows,
+            'anyActive' => $warmer->isActive(null, null),
         ]);
     }
 }

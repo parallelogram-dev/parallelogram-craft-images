@@ -31,4 +31,17 @@ class WarmController extends Controller
 
         return $this->redirectToPostedUrl();
     }
+
+    /**
+     * Active warm scopes, for the utility's live button state.
+     */
+    public function actionStatus(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission('utility:image-variants-warm');
+
+        return $this->asJson([
+            'active' => array_values(Plugin::getInstance()->warmer->activeScopes()),
+        ]);
+    }
 }

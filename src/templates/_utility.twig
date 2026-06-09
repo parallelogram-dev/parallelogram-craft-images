@@ -1,5 +1,23 @@
 {% import "_includes/forms" as forms %}
 
+{% macro warmButton(label, field, matrix, active, submit) %}
+    <span class="iv-warm-cell" data-field="{{ field }}" data-matrix="{{ matrix }}">
+        <form method="post" accept-charset="UTF-8">
+            {{ csrfInput() }}
+            {{ actionInput('image-variants/warm/queue') }}
+            {{ redirectInput('utilities/image-variants-warm') }}
+            {% if field %}{{ hiddenInput('field', field) }}{% endif %}
+            {% if matrix %}{{ hiddenInput('matrix', matrix) }}{% endif %}
+            <button type="submit" class="btn {{ submit ? 'submit' : 'small' }}{{ active ? ' disabled' : '' }}"
+                    {{ active ? 'disabled' : '' }}>
+                <span class="iv-warm-label">{{ active ? 'Warming…'|t('image-variants') : label }}</span>
+                <span class="iv-warm-spinner spinner{{ active ? '' : ' hidden' }}"></span>
+            </button>
+        </form>
+    </span>
+{% endmacro %}
+{% from _self import warmButton %}
+
 <p class="instructions">{{ 'Warming runs as a single serial queue job — watch its progress in the queue widget. Render never queues; this is deliberate, controlled generation.'|t('image-variants') }}</p>
 
 <table class="data fullwidth">
@@ -17,16 +35,7 @@
                 <td><code>{{ row.field }}</code></td>
                 <td><code>{{ row.matrix }}</code></td>
                 <td>{{ row.count }}</td>
-                <td class="thin">
-                    <form method="post" accept-charset="UTF-8">
-                        {{ csrfInput() }}
-                        {{ actionInput('image-variants/warm/queue') }}
-                        {{ redirectInput('utilities/image-variants-warm') }}
-                        {{ hiddenInput('field', row.field) }}
-                        {{ hiddenInput('matrix', row.matrix) }}
-                        <button type="submit" class="btn small">{{ 'Warm'|t('image-variants') }}</button>
-                    </form>
-                </td>
+                <td class="thin">{{ warmButton('Warm'|t('image-variants'), row.field, row.matrix, row.active, false) }}</td>
             </tr>
         {% else %}
             <tr><td colspan="4">{{ 'No field assignments yet.'|t('image-variants') }}</td></tr>
@@ -34,9 +43,55 @@
     </tbody>
 </table>
 
-<form method="post" accept-charset="UTF-8" class="buttons">
-    {{ csrfInput() }}
-    {{ actionInput('image-variants/warm/queue') }}
-    {{ redirectInput('utilities/image-variants-warm') }}
-    <button type="submit" class="btn submit">{{ 'Warm everything'|t('image-variants') }}</button>
-</form>
+<p class="buttons">{{ warmButton('Warm everything'|t('image-variants'), '', '', anyActive, true) }}</p>
+
+{% js %}
+(function () {
+    var statusUrl = Craft.getActionUrl('image-variants/warm/status');
+    var cells = Array.prototype.slice.call(document.querySelectorAll('.iv-warm-cell'));
+
+    function covers(scope, field, matrix) {
+        var f = scope.field || null, m = scope.matrix || null;
+        return (f === null || f === field) && (m === null || m === matrix);
+    }
+
+    function apply(active) {
+        cells.forEach(function (cell) {
+            var field = cell.getAttribute('data-field') || null;
+            var matrix = cell.getAttribute('data-matrix') || null;
+            var on = active.some(function (s) { return covers(s, field, matrix); });
+            var btn = cell.querySelector('button');
+            var label = cell.querySelector('.iv-warm-label');
+            var spinner = cell.querySelector('.iv-warm-spinner');
+            btn.disabled = on;
+            btn.classList.toggle('disabled', on);
+            if (label) { label.textContent = on ? Craft.t('image-variants', 'Warming…') : btn.getAttribute('data-label'); }
+            if (spinner) { spinner.classList.toggle('hidden', !on); }
+        });
+    }
+
+    cells.forEach(function (cell) {
+        var btn = cell.querySelector('button');
+        var label = cell.querySelector('.iv-warm-label');
+        btn.setAttribute('data-label', label ? label.textContent.trim() : 'Warm');
+        cell.querySelector('form').addEventListener('submit', function () {
+            // optimistic flip
+            btn.disabled = true;
+            btn.classList.add('disabled');
+            if (label) { label.textContent = Craft.t('image-variants', 'Warming…'); }
+            var sp = cell.querySelector('.iv-warm-spinner');
+            if (sp) { sp.classList.remove('hidden'); }
+        });
+    });
+
+    function poll() {
+        fetch(statusUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) { apply(data.active || []); })
+            .catch(function () {});
+    }
+
+    setInterval(poll, 3000);
+    poll();
+})();
+{% endjs %}

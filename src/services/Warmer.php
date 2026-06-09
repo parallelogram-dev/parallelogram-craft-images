@@ -16,6 +16,65 @@ use yii\base\Component;
  */
 class Warmer extends Component
 {
+    private const ACTIVE_CACHE_KEY = 'image-variants.warming';
+
+    /**
+     * Record a warm scope as in-progress (shared cache, so the CP can reflect
+     * it). TTL guards against a hard-killed worker leaving a stuck marker.
+     *
+     * @param array{field: ?string, matrix: ?string, volume: ?string} $scope
+     */
+    public function markActive(array $scope): void
+    {
+        $active = $this->activeScopes();
+        $active[$this->scopeKey($scope)] = $scope;
+        Craft::$app->getCache()->set(self::ACTIVE_CACHE_KEY, $active, 3600);
+    }
+
+    /**
+     * @param array{field: ?string, matrix: ?string, volume: ?string} $scope
+     */
+    public function markDone(array $scope): void
+    {
+        $active = $this->activeScopes();
+        unset($active[$this->scopeKey($scope)]);
+        Craft::$app->getCache()->set(self::ACTIVE_CACHE_KEY, $active, 3600);
+    }
+
+    /**
+     * @return array<string, array{field: ?string, matrix: ?string, volume: ?string}>
+     */
+    public function activeScopes(): array
+    {
+        return Craft::$app->getCache()->get(self::ACTIVE_CACHE_KEY) ?: [];
+    }
+
+    /**
+     * Whether a running warm covers this field/matrix (a null field/matrix in a
+     * scope means "everything"/"every matrix of that field").
+     */
+    public function isActive(?string $field, ?string $matrix): bool
+    {
+        foreach ($this->activeScopes() as $scope) {
+            $f = $scope['field'] ?? null;
+            $m = $scope['matrix'] ?? null;
+
+            if (($f === null || $f === $field) && ($m === null || $m === $matrix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array{field: ?string, matrix: ?string, volume: ?string} $scope
+     */
+    private function scopeKey(array $scope): string
+    {
+        return ($scope['field'] ?? '*') . '|' . ($scope['matrix'] ?? '*') . '|' . ($scope['volume'] ?? '*');
+    }
+
     /**
      * @return array<int, string[]> assetId => matrix handles (union across fields)
      */

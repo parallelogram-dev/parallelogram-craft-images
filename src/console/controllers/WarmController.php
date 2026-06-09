@@ -63,15 +63,22 @@ class WarmController extends Controller
 
         $this->stdout("Warming {$total} asset(s)...\n\n");
 
-        $variants = $warmer->warm($plan, function(int $processed, int $total, ?Asset $asset, int $made): void {
-            $this->stdout(sprintf(
-                "[%d/%d] %s — %d variants\n",
-                $processed,
-                $total,
-                $asset?->filename ?? '(missing)',
-                $made
-            ));
-        }, $this->throttle);
+        $scope = ['field' => $this->field, 'matrix' => $this->matrix, 'volume' => $this->volume];
+        $warmer->markActive($scope);
+
+        try {
+            $variants = $warmer->warm($plan, function(int $processed, int $total, ?Asset $asset, int $made): void {
+                $this->stdout(sprintf(
+                    "[%d/%d] %s — %d variants\n",
+                    $processed,
+                    $total,
+                    $asset?->filename ?? '(missing)',
+                    $made
+                ));
+            }, $this->throttle);
+        } finally {
+            $warmer->markDone($scope);
+        }
 
         $this->stdout(sprintf(
             "\nDone. %d assets processed, %d variants generated.\n",
