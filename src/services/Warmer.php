@@ -267,6 +267,67 @@ class Warmer extends Component
     }
 
     /**
+     * Audit coverage without generating anything: for the assignment plan, check
+     * every transform's existence via PathBuilder. Returns a per-matrix tally.
+     * Memory-bounded in the same way as warm().
+     *
+     * @return array<string, array{assets: int, covered: int, transforms: int, missing: int}>
+     */
+    public function audit(?string $field = null, ?string $matrix = null, ?string $volume = null, ?callable $onProgress = null): array
+    {
+        $plan = $this->plan($field, $matrix, $volume);
+        $generator = Plugin::getInstance()->generator;
+        $paths = Plugin::getInstance()->paths;
+
+        $report = [];
+        $ids = array_keys($plan);
+        $total = count($ids);
+        $processed = 0;
+        $batchSize = 100;
+
+        for ($offset = 0; $offset < $total; $offset += $batchSize) {
+            $chunk = array_slice($ids, $offset, $batchSize);
+            $assets = Asset::find()->id($chunk)->kind('image')->indexBy('id')->all();
+
+            foreach ($chunk as $assetId) {
+                $asset = $assets[$assetId] ?? null;
+                $processed++;
+
+                if ($asset === null) {
+                    continue;
+                }
+
+                foreach ($plan[$assetId] as $matrixHandle) {
+                    $transforms = $generator->transformsFor([$matrixHandle]);
+                    $missing = 0;
+
+                    foreach ($transforms as $transform) {
+                        if (!$paths->exists($asset, $transform)) {
+                            $missing++;
+                        }
+                    }
+
+                    $report[$matrixHandle]['assets'] = ($report[$matrixHandle]['assets'] ?? 0) + 1;
+                    $report[$matrixHandle]['transforms'] = ($report[$matrixHandle]['transforms'] ?? 0) + count($transforms);
+                    $report[$matrixHandle]['missing'] = ($report[$matrixHandle]['missing'] ?? 0) + $missing;
+                    $report[$matrixHandle]['covered'] = ($report[$matrixHandle]['covered'] ?? 0) + ($missing === 0 ? 1 : 0);
+                }
+
+                if ($onProgress !== null) {
+                    $onProgress($processed, $total, $asset);
+                }
+            }
+
+            unset($assets);
+            gc_collect_cycles();
+        }
+
+        ksort($report);
+
+        return $report;
+    }
+
+    /**
      * Per field+matrix asset counts, for the utility summary.
      *
      * @return array<int, array{field: string, matrix: string, count: int}>
