@@ -21,6 +21,11 @@ class AssetEvents
     /**
      * When an element is saved in a web context, generate the assigned matrices
      * for assets in any assigned Asset field that was touched.
+     *
+     * A newly uploaded image is itself an element save with no relations yet, so
+     * it is generated up front (volume-scoped) rather than waiting for an entry
+     * to reference it — closing the gap where a fresh upload renders before its
+     * variants exist.
      */
     public static function handleElementSave(ElementEvent $event): void
     {
@@ -30,11 +35,23 @@ class AssetEvents
 
         $element = $event->element;
 
-        if (!$element instanceof ElementInterface || $element instanceof Asset) {
+        if (!$element instanceof ElementInterface) {
             return;
         }
 
         if (ElementHelper::isDraftOrRevision($element)) {
+            return;
+        }
+
+        if ($element instanceof Asset) {
+            if ($event->isNew && $element->kind === Asset::KIND_IMAGE) {
+                $matrixHandles = Plugin::getInstance()->warmer->matrixHandlesForVolume($element);
+
+                if ($matrixHandles !== []) {
+                    Plugin::getInstance()->generator->generate($element, $matrixHandles);
+                }
+            }
+
             return;
         }
 
@@ -68,12 +85,12 @@ class AssetEvents
     }
 
     /**
-     * When an asset's file is replaced, regenerate the matrices for every
-     * assigned field that references it.
+     * When an asset's file is replaced, regenerate the matrices for its volume,
+     * so coverage is complete even before any element references the asset.
      */
     public static function handleAssetReplace(AssetEvent $event): void
     {
-        $matrixHandles = Plugin::getInstance()->warmer->matrixHandlesForAsset($event->asset);
+        $matrixHandles = Plugin::getInstance()->warmer->matrixHandlesForVolume($event->asset);
 
         if ($matrixHandles !== []) {
             Plugin::getInstance()->generator->generate($event->asset, $matrixHandles);

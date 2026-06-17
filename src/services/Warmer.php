@@ -6,6 +6,7 @@ use Craft;
 use craft\db\Query;
 use craft\db\Table;
 use craft\elements\Asset;
+use craft\fields\Assets as AssetsField;
 use parallelogram\imagevariants\Plugin;
 use yii\base\Component;
 
@@ -223,6 +224,65 @@ class Warmer extends Component
         }
 
         return array_values(array_unique($handles));
+    }
+
+    /**
+     * The union of matrices assigned to any field whose sources include the
+     * asset's volume.
+     *
+     * Unlike {@see matrixHandlesForAsset()} this needs no relation rows, so it
+     * is correct for a freshly uploaded asset with nothing pointing at it yet:
+     * an asset can only ever be placed in a field that accepts its volume, so
+     * this is the complete set of variants it could be rendered with.
+     *
+     * @return string[]
+     */
+    public function matrixHandlesForVolume(Asset $asset): array
+    {
+        $settings = Plugin::getInstance()->getSettings();
+        $fields = Craft::$app->getFields();
+        $volumeUid = $asset->getVolume()->uid;
+
+        $handles = [];
+
+        foreach ($settings->fieldAssignments as $fieldHandle => $matrixHandles) {
+            $field = $fields->getFieldByHandle($fieldHandle);
+
+            if ($field instanceof AssetsField && $this->fieldAcceptsVolume($field, $volumeUid)) {
+                $handles = array_merge($handles, $matrixHandles);
+            }
+        }
+
+        return array_values(array_unique($handles));
+    }
+
+    /**
+     * Whether an Assets field's configured sources include the given volume. A
+     * field set to all sources (`*`) accepts every volume; otherwise each
+     * `volume:`/`folder:` source is resolved to its volume and compared.
+     */
+    private function fieldAcceptsVolume(AssetsField $field, string $volumeUid): bool
+    {
+        $sources = $field->sources;
+
+        if ($sources === '*' || $sources === null) {
+            return true;
+        }
+
+        foreach ((array)$sources as $source) {
+            if (str_starts_with($source, 'volume:') && substr($source, 7) === $volumeUid) {
+                return true;
+            }
+
+            if (str_starts_with($source, 'folder:')) {
+                $folder = Craft::$app->getAssets()->getFolderByUid(substr($source, 7));
+                if ($folder !== null && $folder->getVolume()->uid === $volumeUid) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
