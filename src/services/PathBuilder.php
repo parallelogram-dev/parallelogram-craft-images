@@ -79,28 +79,40 @@ class PathBuilder extends Component
      */
     public function uriFor(Asset $asset, array|ImageTransform $transform): string
     {
+        return $this->uriAt($asset, $transform, (string)$asset->folderPath, $asset->getFilename());
+    }
+
+    /**
+     * The transform URI the asset would have if its file lived at
+     * $folderPath/$sourceFilename, so a pending move or rename can be mapped
+     * before Craft relocates the file.
+     *
+     * @param array<string, mixed>|ImageTransform $transform
+     */
+    public function uriAt(Asset $asset, array|ImageTransform $transform, string $folderPath, string $sourceFilename): string
+    {
         $imageTransform = $transform instanceof ImageTransform
             ? $transform
             : ImageTransforms::normalizeTransform($transform);
 
         $transformString = ImageTransforms::getTransformString($imageTransform);
 
-        $basename = pathinfo($asset->getFilename(), PATHINFO_FILENAME);
-        $extension = $imageTransform->format ?: $asset->getExtension();
+        $basename = pathinfo($sourceFilename, PATHINFO_FILENAME);
+        $extension = $imageTransform->format ?: pathinfo($sourceFilename, PATHINFO_EXTENSION);
         $filename = $basename . '.' . $extension;
 
         $subfolder = $transformString;
-        if ($filename !== $asset->getFilename()) {
+        if ($filename !== $sourceFilename) {
             $subfolder .= '/' . $asset->id;
         }
 
-        return $this->basePath($asset) . $subfolder . '/' . $filename;
+        return $this->basePath($asset, $folderPath) . $subfolder . '/' . $filename;
     }
 
-    private function basePath(Asset $asset): string
+    private function basePath(Asset $asset, string $folderPath): string
     {
         $subpath = rtrim($asset->getVolume()->getTransformSubpath(), '/');
-        $base = ($subpath !== '' ? $subpath . '/' : '') . $asset->folderPath;
+        $base = ($subpath !== '' ? $subpath . '/' : '') . $folderPath;
 
         return str_replace('\\', '/', $base);
     }

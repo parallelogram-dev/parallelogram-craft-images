@@ -7,7 +7,9 @@ use craft\base\Element;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
 use craft\elements\Asset;
+use craft\events\AssetEvent;
 use craft\events\DefineMenuItemsEvent;
+use craft\events\ModelEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterElementActionsEvent;
 use craft\fields\Assets;
@@ -22,6 +24,7 @@ use parallelogram\imagevariants\services\Generator;
 use parallelogram\imagevariants\services\PathBuilder;
 use parallelogram\imagevariants\services\Pipeline;
 use parallelogram\imagevariants\services\Resolver;
+use parallelogram\imagevariants\services\VariantRelocator;
 use parallelogram\imagevariants\services\Warmer;
 use parallelogram\imagevariants\utilities\WarmUtility;
 use parallelogram\imagevariants\web\twig\VariantsVariable;
@@ -40,6 +43,7 @@ use yii\base\Event;
  * @property-read PathBuilder $paths
  * @property-read Pipeline $pipeline
  * @property-read Resolver $resolver
+ * @property-read VariantRelocator $relocator
  * @property-read Warmer $warmer
  */
 class Plugin extends BasePlugin
@@ -58,7 +62,31 @@ class Plugin extends BasePlugin
             'pipeline' => Pipeline::class,
             'resolver' => Resolver::class,
             'warmer' => Warmer::class,
+            'relocator' => fn(): VariantRelocator => new VariantRelocator(
+                $this->paths,
+                $this->generator,
+                $this->warmer,
+                Craft::$app->getAssets(),
+            ),
         ]);
+
+        Event::on(
+            Asset::class,
+            Asset::EVENT_BEFORE_HANDLE_FILE,
+            function(AssetEvent $event): void {
+                $this->relocator->copyToNewLocation($event->asset, $event->isNew);
+            }
+        );
+
+        Event::on(
+            Asset::class,
+            Element::EVENT_AFTER_SAVE,
+            function(ModelEvent $event): void {
+                /** @var Asset $asset */
+                $asset = $event->sender;
+                $this->relocator->finishRelocation($asset, !Craft::$app->getRequest()->getIsConsoleRequest());
+            }
+        );
 
         Event::on(
             Utilities::class,

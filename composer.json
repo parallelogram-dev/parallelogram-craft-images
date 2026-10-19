@@ -12,10 +12,33 @@
       "parallelogram\\imagevariants\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "parallelogram\\imagevariants\\test\\": "tests/"
+    }
+  },
+  "scripts": {
+    "cs-check": "phpcs",
+    "cs-fix": "phpcbf",
+    "static-analysis": "phpstan analyse",
+    "test": "phpunit"
+  },
   "extra": {
     "handle": "image-variants",
     "name": "Parallelogram Image Variants",
     "developer": "Parallelogram",
     "class": "parallelogram\\imagevariants\\Plugin"
+  },
+  "config": {
+    "allow-plugins": {
+      "craftcms/plugin-installer": true,
+      "yiisoft/yii2-composer": true,
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^11.5",
+    "phpstan/phpstan": "^2.1",
+    "laminas/laminas-coding-standard": "^3.0"
   }
 }
