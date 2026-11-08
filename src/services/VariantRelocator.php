@@ -16,8 +16,8 @@ use craft\services\Assets as AssetsService;
  * `{slug}`) would otherwise leave every rendered variant URL pointing at nothing.
  * Craft deletes the transforms it has indexed while relocating the file, so the
  * copy has to happen beforehand, in {@see copyToNewLocation()}; once the save has
- * finished, {@see finishRelocation()} removes the old copies and generates only
- * the variants that were missing at the old location.
+ * finished, {@see finishRelocation()} removes the old copies and reports the
+ * matrices to generate, so the caller can do that outside the save.
  */
 class VariantRelocator
 {
@@ -80,13 +80,15 @@ class VariantRelocator
     }
 
     /**
-     * Returns the number of transforms the generator processed, zero when the asset
-     * had no relocation pending or generation was not requested.
+     * Returns the matrix handles whose missing variants still need generating,
+     * or an empty list when the asset had no relocation pending.
+     *
+     * @return string[]
      */
-    public function finishRelocation(Asset $asset, bool $generateMissing): int
+    public function finishRelocation(Asset $asset): array
     {
         if ($asset->id === null || ! isset($this->pending[$asset->id])) {
-            return 0;
+            return [];
         }
 
         ['matrixHandles' => $matrixHandles, 'oldUris' => $oldUris] = $this->pending[$asset->id];
@@ -100,6 +102,6 @@ class VariantRelocator
             }
         }
 
-        return $generateMissing ? $this->generator->generate($asset, $matrixHandles) : 0;
+        return $matrixHandles;
     }
 }

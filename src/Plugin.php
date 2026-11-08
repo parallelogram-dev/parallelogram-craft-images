@@ -13,11 +13,13 @@ use craft\events\ModelEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterElementActionsEvent;
 use craft\fields\Assets;
+use craft\helpers\Queue;
 use craft\services\Assets as AssetsService;
 use craft\services\Elements;
 use craft\services\Utilities;
 use craft\web\twig\variables\CraftVariable;
 use parallelogram\imagevariants\elements\actions\RebuildVariants;
+use parallelogram\imagevariants\jobs\GenerateJob;
 use parallelogram\imagevariants\listeners\AssetEvents;
 use parallelogram\imagevariants\models\Settings;
 use parallelogram\imagevariants\services\Generator;
@@ -84,7 +86,11 @@ class Plugin extends BasePlugin
             function(ModelEvent $event): void {
                 /** @var Asset $asset */
                 $asset = $event->sender;
-                $this->relocator->finishRelocation($asset, !Craft::$app->getRequest()->getIsConsoleRequest());
+                $matrixHandles = $this->relocator->finishRelocation($asset);
+
+                if ($matrixHandles !== [] && !Craft::$app->getRequest()->getIsConsoleRequest()) {
+                    Queue::push(new GenerateJob(['assetId' => $asset->id, 'matrixHandles' => $matrixHandles]));
+                }
             }
         );
 

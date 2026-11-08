@@ -197,16 +197,15 @@ final class VariantRelocatorTest extends TestCase
         $this->filesOnDisk = ['old/640/hero.jpg'];
 
         $this->fs->expects($this->never())->method('copyFile');
-        $this->generator->expects($this->never())->method('generate');
 
         $relocator = new VariantRelocator($this->paths, $this->generator, $warmer, $this->assets);
         $asset     = $this->makeMovingAsset();
 
         self::assertSame(0, $relocator->copyToNewLocation($asset, false));
-        self::assertSame(0, $relocator->finishRelocation($asset, true));
+        self::assertSame([], $relocator->finishRelocation($asset));
     }
 
-    public function testFinishingDeletesTheOldCopiesAndGeneratesWhatIsMissing(): void
+    public function testFinishingDeletesTheOldCopiesAndReportsTheMatricesWithoutGenerating(): void
     {
         $this->filesOnDisk = ['old/640/hero.jpg', 'old/1280/hero.jpg'];
         $asset             = $this->makeMovingAsset();
@@ -216,9 +215,9 @@ final class VariantRelocatorTest extends TestCase
         $this->fs->method('deleteFile')->willReturnCallback(static function (string $uri) use (&$deleted): void {
             $deleted[] = $uri;
         });
-        $this->generator->expects($this->once())->method('generate')->with($asset, ['product'])->willReturn(2);
+        $this->generator->expects($this->never())->method('generate');
 
-        self::assertSame(2, $this->relocator->finishRelocation($asset, true));
+        self::assertSame(['product'], $this->relocator->finishRelocation($asset));
         self::assertSame(['old/640/hero.jpg', 'old/1280/hero.jpg'], $deleted);
     }
 
@@ -231,19 +230,7 @@ final class VariantRelocatorTest extends TestCase
 
         $this->fs->expects($this->once())->method('deleteFile')->with('old/1280/hero.jpg');
 
-        $this->relocator->finishRelocation($asset, true);
-    }
-
-    public function testFinishingWithoutGenerationStillRemovesTheOldCopies(): void
-    {
-        $this->filesOnDisk = ['old/640/hero.jpg'];
-        $asset             = $this->makeMovingAsset();
-        $this->relocator->copyToNewLocation($asset, false);
-
-        $this->fs->expects($this->once())->method('deleteFile')->with('old/640/hero.jpg');
-        $this->generator->expects($this->never())->method('generate');
-
-        self::assertSame(0, $this->relocator->finishRelocation($asset, false));
+        $this->relocator->finishRelocation($asset);
     }
 
     public function testFinishingIsANoOpWhenNoRelocationIsPending(): void
@@ -251,9 +238,7 @@ final class VariantRelocatorTest extends TestCase
         $this->filesOnDisk = ['old/640/hero.jpg'];
 
         $this->fs->expects($this->never())->method('deleteFile');
-        $this->generator->expects($this->never())->method('generate');
-
-        self::assertSame(0, $this->relocator->finishRelocation($this->makeMovingAsset(), true));
+        self::assertSame([], $this->relocator->finishRelocation($this->makeMovingAsset()));
     }
 
     public function testFinishingIsANoOpForAnUnsavedAsset(): void
@@ -261,9 +246,7 @@ final class VariantRelocatorTest extends TestCase
         $asset     = $this->makeMovingAsset();
         $asset->id = null;
 
-        $this->generator->expects($this->never())->method('generate');
-
-        self::assertSame(0, $this->relocator->finishRelocation($asset, true));
+        self::assertSame([], $this->relocator->finishRelocation($asset));
     }
 
     public function testAPendingRelocationIsOnlyFinishedOnce(): void
@@ -272,11 +255,8 @@ final class VariantRelocatorTest extends TestCase
         $asset             = $this->makeMovingAsset();
         $this->relocator->copyToNewLocation($asset, false);
 
-        $this->generator->expects($this->once())->method('generate')->willReturn(1);
-
-        $this->relocator->finishRelocation($asset, true);
-
-        self::assertSame(0, $this->relocator->finishRelocation($asset, true));
+        self::assertSame(['product'], $this->relocator->finishRelocation($asset));
+        self::assertSame([], $this->relocator->finishRelocation($asset));
     }
 
     private function makeMovingAsset(string $newFilename = 'hero.jpg'): Asset&MockObject
