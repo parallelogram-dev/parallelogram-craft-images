@@ -47,6 +47,12 @@ final class SettingsValidator
             $errors['sizeSets'] = $sizeSetErrors;
         }
 
+        $backendErrors = BackendChecks::errors($settings->backends);
+
+        if ([] !== $backendErrors) {
+            $errors['backends'] = $backendErrors;
+        }
+
         foreach (SingleValueChecks::errors($settings) as $attribute => $message) {
             $errors[$attribute][] = $message;
         }

@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace parallelogram\images\test\Unit\models;
 
+use parallelogram\images\backends\BackendChoice;
+use parallelogram\images\backends\BackendKind;
+use parallelogram\images\backends\InvalidBackendException;
+use parallelogram\images\backends\RemoteSettings;
 use parallelogram\images\config\AssignmentConfig;
+use parallelogram\images\config\BackendConfig;
 use parallelogram\images\config\ConfigValues;
 use parallelogram\images\config\EncodingConfig;
 use parallelogram\images\config\FitConfig;
 use parallelogram\images\config\SizeSetConfig;
 use parallelogram\images\config\SizeSetRows;
 use parallelogram\images\config\SizeSetTable;
+use parallelogram\images\models\BackendChecks;
 use parallelogram\images\models\Settings;
 use parallelogram\images\models\SettingsValidator;
 use parallelogram\images\models\SingleValueChecks;
@@ -44,8 +50,14 @@ use function array_keys;
 #[CoversClass(SettingsValidator::class)]
 #[CoversClass(SingleValueChecks::class)]
 #[CoversClass(VariantPrefixCheck::class)]
+#[CoversClass(BackendChecks::class)]
 #[UsesClass(AspectRatio::class)]
 #[UsesClass(AssignmentConfig::class)]
+#[UsesClass(BackendChoice::class)]
+#[UsesClass(BackendConfig::class)]
+#[UsesClass(BackendKind::class)]
+#[UsesClass(InvalidBackendException::class)]
+#[UsesClass(RemoteSettings::class)]
 #[UsesClass(ConfigValues::class)]
 #[UsesClass(Encoding::class)]
 #[UsesClass(EncodingConfig::class)]
@@ -112,7 +124,57 @@ final class SettingsTest extends TestCase
                 'variantPrefix',
                 'can\'t be used as a variant prefix',
             ],
+            'unknown backend'    => [['backends' => ['default' => 'vips']], 'backends', '“vips” isn\'t a backend.'],
+            'imgproxy without url'    => [
+                ['backends' => ['default' => 'imgproxy', 'imgproxyKey' => '$K', 'imgproxySalt' => '$S']],
+                'backends',
+                'Enter the address of your imgproxy server.',
+            ],
+            'literal imgproxy key'    => [
+                ['backends' => [
+                    'default'      => 'imgproxy',
+                    'imgproxyUrl'  => 'https://img.test',
+                    'imgproxyKey'  => 'abc',
+                    'imgproxySalt' => '$S',
+                ]],
+                'backends',
+                'as environment variables',
+            ],
+            'literal imgproxy salt'   => [
+                [
+                    'backends' => [
+                        'volumes'      => ['v' => 'imgproxy'],
+                        'imgproxyUrl'  => 'https://img.test',
+                        'imgproxyKey'  => '$K',
+                        'imgproxySalt' => 'abc',
+                    ],
+                ],
+                'backends',
+                'as environment variables',
+            ],
+            'cloudflare without zone' => [
+                ['backends' => ['default' => 'cloudflare']],
+                'backends',
+                'Enter the address of the Cloudflare zone',
+            ],
         ];
+    }
+
+    #[Test]
+    public function acceptsCompleteRemoteBackendSettings(): void
+    {
+        $settings = new Settings([
+            'backends' => [
+                'default'           => 'imgproxy',
+                'volumes'           => ['volume-1' => 'cloudflare'],
+                'imgproxyUrl'       => 'https://img.example.test',
+                'imgproxyKey'       => '$IMGPROXY_KEY',
+                'imgproxySalt'      => '$IMGPROXY_SALT',
+                'cloudflareZoneUrl' => 'https://www.example.test',
+            ],
+        ]);
+
+        static::assertTrue($settings->validate());
     }
 
     #[Test]

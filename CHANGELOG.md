@@ -13,6 +13,8 @@
 - GD generator for servers without ImageMagick: same resize geometry, EXIF orientation (matching ImageMagick's for all eight values), sharpening and letterboxing, encoding AVIF, WebP, progressive JPG or PNG. GD can't convert colour profiles, so the sRGB setting has no effect with it.
 - imgproxy URLs, signed with the server's hex key and salt, mapping every mode onto imgproxy's resizing (focal-point crops, never enlarging) and the site's processing onto auto-rotate, sRGB and sharpen options.
 - Cloudflare Images transform-via-URL links. Cloudflare can't output PNG, may enlarge letterboxed or stretched images, and always pads with white.
+- Backend choice: site-wide (auto: ImageMagick, then GD; or imgproxy or Cloudflare) with per-volume overrides. The imgproxy key and salt must be environment variables.
+- The variant route: `{prefix}/…` requests the web server can't satisfy are answered by the plugin once a filesystem and prefix are chosen. A Delivery tab in the settings covers the filesystem, prefix, backends and service details.
 - `P_IMAGES_SECRET` is written to `.env` on install if it isn't already set.
 - `PrototypeConverter`, which turns the prototype's matrices and field-handle assignments into size sets and UID-keyed assignments, with notes on anything that couldn't carry over.
 

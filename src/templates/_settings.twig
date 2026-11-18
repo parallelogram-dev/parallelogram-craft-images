@@ -4,6 +4,7 @@
     <button type="button" class="btn pi-tab sel" data-pane="sizeSets">{{ 'Size sets'|t('p-images') }}</button>
     <button type="button" class="btn pi-tab" data-pane="assignments">{{ 'Pre-generate'|t('p-images') }}</button>
     <button type="button" class="btn pi-tab" data-pane="other">{{ 'Formats and processing'|t('p-images') }}</button>
+    <button type="button" class="btn pi-tab" data-pane="delivery">{{ 'Delivery'|t('p-images') }}</button>
 </div>
 
 <div class="pi-pane" data-pane="sizeSets">
@@ -143,6 +144,103 @@
         size: 4,
         errors: settings.getErrors('threadLimit')
     }) }}
+</div>
+
+<div class="pi-pane hidden" data-pane="delivery">
+    {% if not settings.isConfigured() %}
+        <p class="warning">{{ 'Variants are off until a filesystem and a path prefix are both chosen. Until then, no variants are made or served.'|t('p-images') }}</p>
+    {% endif %}
+
+    {{ forms.selectField({
+        label: 'Variant filesystem'|t('p-images'),
+        instructions: 'Where variant files are kept. Choose a local filesystem in the web root to have the web server send them directly, or a bucket or CDN to have requests redirected there.'|t('p-images'),
+        id: 'variantFilesystem',
+        name: 'variantFilesystem',
+        options: [{ label: 'Choose a filesystem…'|t('p-images'), value: '' }] | merge(filesystems | map(fs => { label: fs.name, value: fs.handle })),
+        value: settings.variantFilesystem,
+        errors: settings.getErrors('variantFilesystem')
+    }) }}
+
+    {{ forms.autosuggestField({
+        label: 'Path prefix'|t('p-images'),
+        instructions: 'The folder variants live under on that filesystem, such as `asset/variant`. Each image gets its own folder inside it. Can be an environment variable.'|t('p-images'),
+        id: 'variantPrefix',
+        name: 'variantPrefix',
+        value: settings.variantPrefix,
+        suggestEnvVars: true,
+        errors: settings.getErrors('variantPrefix')
+    }) }}
+
+    <hr>
+
+    <h2>{{ 'Backend'|t('p-images') }}</h2>
+
+    {% set backendOptions = backends | map(kind => { label: kind.name, value: kind.value }) %}
+
+    {{ forms.selectField({
+        label: 'Site backend'|t('p-images'),
+        instructions: 'What makes the images. Auto uses ImageMagick when it’s installed, otherwise GD. imgproxy and Cloudflare make images themselves and pages link to them directly.'|t('p-images'),
+        id: 'backends-default',
+        name: 'backends[default]',
+        options: backendOptions,
+        value: settings.backends.default ?? 'auto'
+    }) }}
+
+    {% for volume in volumes %}
+        {{ forms.selectField({
+            label: volume.name,
+            instructions: 'Leave as “Site backend” to follow the setting above.'|t('p-images'),
+            id: 'backends-volume-' ~ volume.uid,
+            name: 'backends[volumes][' ~ volume.uid ~ ']',
+            options: [{ label: 'Site backend'|t('p-images'), value: '' }] | merge(backendOptions),
+            value: settings.backends.volumes[volume.uid] ?? ''
+        }) }}
+    {% endfor %}
+
+    <h3>imgproxy</h3>
+
+    {{ forms.autosuggestField({
+        label: 'Server URL'|t('p-images'),
+        id: 'backends-imgproxyUrl',
+        name: 'backends[imgproxyUrl]',
+        value: settings.backends.imgproxyUrl ?? '',
+        suggestEnvVars: true
+    }) }}
+
+    {{ forms.autosuggestField({
+        label: 'Key'|t('p-images'),
+        instructions: 'An environment variable holding the hex key, such as `$IMGPROXY_KEY`. Literal keys aren’t accepted, so they never reach project config.'|t('p-images'),
+        id: 'backends-imgproxyKey',
+        name: 'backends[imgproxyKey]',
+        value: settings.backends.imgproxyKey ?? '',
+        suggestEnvVars: true
+    }) }}
+
+    {{ forms.autosuggestField({
+        label: 'Salt'|t('p-images'),
+        instructions: 'An environment variable holding the hex salt, such as `$IMGPROXY_SALT`.'|t('p-images'),
+        id: 'backends-imgproxySalt',
+        name: 'backends[imgproxySalt]',
+        value: settings.backends.imgproxySalt ?? '',
+        suggestEnvVars: true
+    }) }}
+
+    <h3>Cloudflare Images</h3>
+
+    {{ forms.autosuggestField({
+        label: 'Zone URL'|t('p-images'),
+        instructions: 'The address of the Cloudflare zone with image transformations turned on, such as `https://www.example.com`. Cloudflare can’t make PNG files.'|t('p-images'),
+        id: 'backends-cloudflareZoneUrl',
+        name: 'backends[cloudflareZoneUrl]',
+        value: settings.backends.cloudflareZoneUrl ?? '',
+        suggestEnvVars: true
+    }) }}
+
+    {% if settings.getErrors('backends') %}
+        <ul class="errors">
+            {% for error in settings.getErrors('backends') %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+    {% endif %}
 </div>
 
 {% css %}

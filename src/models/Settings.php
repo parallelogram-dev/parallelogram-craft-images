@@ -7,6 +7,7 @@ namespace parallelogram\images\models;
 use craft\base\Model;
 use Override;
 use parallelogram\images\config\AssignmentConfig;
+use parallelogram\images\config\BackendConfig;
 use parallelogram\images\config\ConfigValues;
 use parallelogram\images\config\SizeSetConfig;
 use parallelogram\images\config\SizeSetRows;
@@ -33,6 +34,14 @@ use function array_map;
 final class Settings extends Model
 {
     public bool $autoOrient = true;
+
+    /**
+     * Which backend makes variants, site-wide and per volume, and the remote
+     * services' connection details. See {@see BackendConfig} for its shape.
+     *
+     * @var array<array-key, mixed>
+     */
+    public array $backends = [];
 
     public bool $convertToSrgb = true;
 
@@ -198,6 +207,7 @@ final class Settings extends Model
             [
                 [
                     'autoOrient',
+                    'backends',
                     'convertToSrgb',
                     'defaultFormats',
                     'fieldAssignmentInput',

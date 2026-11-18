@@ -10,13 +10,20 @@ use craft\elements\Asset;
 use craft\events\DefineMenuItemsEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterElementActionsEvent;
+use craft\events\RegisterUrlRulesEvent;
 use craft\fields\Assets;
 use craft\helpers\App;
 use craft\services\Assets as AssetsService;
 use craft\services\Elements;
 use craft\services\Utilities;
 use craft\web\twig\variables\CraftVariable;
+use craft\web\UrlManager;
+use Imagick;
+use parallelogram\images\backends\BackendKind;
+use parallelogram\images\craft\DeliveryFactory;
+use parallelogram\images\craft\LiveCraftEnvironment;
 use parallelogram\images\craft\SecretProvisioner;
+use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\elements\actions\RebuildVariants;
 use parallelogram\images\listeners\AssetEvents;
 use parallelogram\images\models\Settings;
@@ -49,6 +56,19 @@ class Plugin extends BasePlugin
     public string $schemaVersion = '0.1.0';
 
     public bool $hasCpSettings = true;
+
+    private ?VariantRequestHandler $deliveryHandler = null;
+
+    /**
+     * The handler for variant requests, or null until variants are fully
+     * configured.
+     */
+    public function delivery(): ?VariantRequestHandler
+    {
+        return $this->deliveryHandler ??= (new DeliveryFactory(new LiveCraftEnvironment()))->handler(
+            $this->getSettings(),
+        );
+    }
 
     /**
      * Add a "Rebuild image variants" item to the asset edit screen's action
@@ -122,6 +142,23 @@ class Plugin extends BasePlugin
             'resolver'  => Resolver::class,
             'warmer'    => Warmer::class,
         ]);
+
+        if ($this->getSettings()->threadLimit > 0 && extension_loaded('imagick')) {
+            Imagick::setResourceLimit(Imagick::RESOURCETYPE_THREAD, $this->getSettings()->threadLimit);
+        }
+
+        Event::on(
+            UrlManager::class,
+            UrlManager::EVENT_REGISTER_SITE_URL_RULES,
+            function (RegisterUrlRulesEvent $event): void {
+                $settings = $this->getSettings();
+                $prefix   = trim((string) App::parseEnv($settings->variantPrefix), '/');
+
+                if ($settings->isConfigured() && '' !== $prefix) {
+                    $event->rules["{$prefix}/<path:.+>"] = 'p-images/variants/serve';
+                }
+            },
+        );
 
         Event::on(
             Utilities::class,
@@ -203,6 +240,9 @@ class Plugin extends BasePlugin
                 'view'        => new SettingsView($settings),
                 'assetFields' => $assetFields,
                 'formats'     => Format::cases(),
+                'backends'    => BackendKind::cases(),
+                'volumes'     => Craft::$app->getVolumes()->getAllVolumes(),
+                'filesystems' => Craft::$app->getFs()->getAllFilesystems(),
             ]);
     }
 }
