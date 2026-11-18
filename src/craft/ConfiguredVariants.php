@@ -45,11 +45,16 @@ final readonly class ConfiguredVariants
         }
 
         try {
-            $processing = new Processing($settings->autoOrient, $settings->convertToSrgb, $settings->sharpenAmount);
-            $path       = new VariantPath($environment->parse($settings->variantPrefix));
-            $hasher     = new VariantHasher($environment->parse('$' . SecretProvisioner::ENV_NAME), $processing);
-            $siteUrl    = $environment->siteUrl();
-            $store      = FsVariantStore::forFilesystem($filesystem, $siteUrl);
+            $processing = new Processing(
+                $settings->autoOrient,
+                $settings->convertToSrgb,
+                $settings->sharpenAmount,
+                $settings->avifEffort,
+            );
+            $path    = new VariantPath($environment->parse($settings->variantPrefix));
+            $hasher  = new VariantHasher($environment->parse('$' . SecretProvisioner::ENV_NAME), $processing);
+            $siteUrl = $environment->siteUrl();
+            $store   = FsVariantStore::forFilesystem($filesystem, $siteUrl);
 
             return new self(
                 $settings->catalogue(),

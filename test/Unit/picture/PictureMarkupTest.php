@@ -23,6 +23,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 use function str_contains;
+use function str_starts_with;
 use function substr_count;
 
 /**
@@ -75,14 +76,20 @@ final class PictureMarkupTest extends TestCase
     }
 
     #[Test]
-    public function fillsTheImageWithItsPlaceholderColourUntilItLoads(): void
+    public function fillsThePictureWithItsPlaceholderColourUntilTheImageLoads(): void
     {
         $html = PictureMarkup::picture(
             PictureSourcesFactory::make(colour: '#7a8b6c'),
             new PictureOptions('Harbour', loading: Loading::Lazysrc),
         );
 
-        static::assertSame(2, substr_count($html, needle: ' style="background-color:#7a8b6c"'));
+        static::assertSame(
+            [true, 1],
+            [
+                str_starts_with($html, '<picture style="background-color:#7a8b6c">'),
+                substr_count($html, needle: 'style='),
+            ],
+        );
     }
 
     #[Test]
@@ -118,7 +125,7 @@ final class PictureMarkupTest extends TestCase
     }
 
     #[Test]
-    public function letsATemplatesStyleReplaceThePlaceholderColour(): void
+    public function leavesTheImagesOwnStyleAloneBesideThePlaceholderColour(): void
     {
         $html = PictureMarkup::picture(
             PictureSourcesFactory::make(colour: '#7a8b6c'),
@@ -126,8 +133,25 @@ final class PictureMarkupTest extends TestCase
         );
 
         static::assertSame(
+            [true, 1],
+            [
+                str_starts_with($html, '<picture style="background-color:#7a8b6c">'),
+                substr_count($html, needle: ' style="object-fit:cover"'),
+            ],
+        );
+    }
+
+    #[Test]
+    public function letsATemplatesPictureStyleReplaceThePlaceholderColour(): void
+    {
+        $html = PictureMarkup::picture(
+            PictureSourcesFactory::make(colour: '#7a8b6c'),
+            new PictureOptions('Harbour', picture: new ElementAttributes(attributes: ['style' => 'padding-top:50%'])),
+        );
+
+        static::assertSame(
             [false, true],
-            [str_contains($html, 'background-color'), str_contains($html, 'style="object-fit:cover"')],
+            [str_contains($html, 'background-color'), str_starts_with($html, '<picture style="padding-top:50%">')],
         );
     }
 

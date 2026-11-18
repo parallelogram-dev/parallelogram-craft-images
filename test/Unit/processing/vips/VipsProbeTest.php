@@ -25,16 +25,18 @@ use function class_exists;
 final class VipsProbeTest extends TestCase
 {
     /**
-     * @return array<string, array{bool, bool, string|null, bool}>
+     * @return array<string, array{bool, bool, bool, string|null, bool}>
      */
     public static function serverProvider(): array
     {
         return [
-            'everything in place'    => [true, true, '8.18.7', true],
-            'php-vips not installed' => [false, true, '8.18.7', false],
-            'ffi not loaded'         => [true, false, '8.18.7', false],
-            'libvips will not load'  => [true, true, null, false],
-            'no version reported'    => [true, true, '', false],
+            'ffi in place'            => [true, true, false, '8.18.7', true],
+            'vips extension in place' => [true, false, true, '8.18.7', true],
+            'both in place'           => [true, true, true, '8.18.7', true],
+            'php-vips not installed'  => [false, true, true, '8.18.7', false],
+            'neither extension'       => [true, false, false, '8.18.7', false],
+            'libvips will not load'   => [true, true, false, null, false],
+            'no version reported'     => [true, true, false, '', false],
         ];
     }
 
@@ -55,11 +57,17 @@ final class VipsProbeTest extends TestCase
 
     #[DataProvider('serverProvider')]
     #[Test]
-    public function reportsWhetherLibvipsCanBeUsed(bool $installed, bool $ffi, ?string $version, bool $expected): void
-    {
+    public function reportsWhetherLibvipsCanBeUsed(
+        bool $installed,
+        bool $ffi,
+        bool $extension,
+        ?string $version,
+        bool $expected,
+    ): void {
         $probe = new VipsProbe(
             static fn(): bool => $installed,
             static fn(): bool => $ffi,
+            static fn(): bool => $extension,
             /**
              * @throws RuntimeException
              */

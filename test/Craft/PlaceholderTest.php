@@ -18,8 +18,10 @@ use parallelogram\images\craft\PlaceholderBackfill;
 use parallelogram\images\craft\PlaceholderEvents;
 use parallelogram\images\craft\PlaceholderMaker;
 use parallelogram\images\craft\PlaceholderStore;
+use parallelogram\images\events\PlaceholderSavedEvent;
 use parallelogram\images\fields\PlaceholderColourField;
 use parallelogram\images\jobs\PlaceholderJob;
+use parallelogram\images\Plugin;
 use parallelogram\images\test\TestAsset\Factory\ImageFactory;
 use parallelogram\images\test\TestAsset\Fake\FailingSampler;
 use parallelogram\images\test\Trait\UsesCraftAppTrait;
@@ -29,6 +31,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 use yii\base\ErrorException;
+use yii\base\Event;
 use yii\base\Exception;
 
 use function count;
@@ -49,6 +52,7 @@ use function tempnam;
 #[CoversClass(PlaceholderEvents::class)]
 #[CoversClass(PlaceholderJob::class)]
 #[CoversClass(PlaceholderMaker::class)]
+#[CoversClass(PlaceholderSavedEvent::class)]
 #[CoversClass(PlaceholderStore::class)]
 #[Group('integration')]
 #[Group('craft')]
@@ -76,6 +80,28 @@ final class PlaceholderTest extends TestCase
         return (int) (new Query())->from(Table::QUEUE)
             ->where(['description' => 'Working out an image’s placeholder colour'])
             ->count();
+    }
+
+    /**
+     * @throws Throwable
+     */
+    #[Test]
+    public function announcesTheColourOnceItIsStored(): void
+    {
+        $asset    = $this->redImage();
+        $received = [];
+        $handler  = static function (PlaceholderSavedEvent $event) use (&$received): void {
+            $received[] = [$event->asset->id, $event->colour];
+        };
+        Event::on(Plugin::class, Plugin::EVENT_AFTER_SAVE_PLACEHOLDER, $handler);
+
+        try {
+            (new PlaceholderJob(['assetId' => $asset->id]))->execute(Craft::$app->getQueue());
+        } finally {
+            Event::off(Plugin::class, Plugin::EVENT_AFTER_SAVE_PLACEHOLDER, $handler);
+        }
+
+        static::assertSame([[$asset->id, '#fe0000']], $received);
     }
 
     /**
@@ -279,7 +305,7 @@ final class PlaceholderTest extends TestCase
         $view = Craft::$app->getView();
 
         static::assertStringContainsString(
-            'style="background-color:#fe0000"',
+            '<picture style="background-color:#fe0000">',
             $view->renderString("{{ asset.picture('card') }}", ['asset' => self::fresh($asset)]),
         );
     }

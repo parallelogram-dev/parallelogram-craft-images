@@ -31,14 +31,12 @@ use function ob_start;
  */
 final class GdEncoder
 {
-    private const int AVIF_SPEED = 6;
-
     private const int PNG_COMPRESSION = 6;
 
     /**
      * @throws GenerationFailedException
      */
-    public static function encode(GdImage $image, Format $format, int $quality): string
+    public static function encode(GdImage $image, Format $format, int $quality, int $avifSpeed): string
     {
         if (Format::Jpg === $format) {
             $image = self::flattened($image);
@@ -47,7 +45,12 @@ final class GdEncoder
         ob_start();
 
         try {
-            GdGuard::call("encode {$format->value}", static fn(): bool => self::write($image, $format, $quality));
+            GdGuard::call("encode {$format->value}", static fn(): bool => self::write(
+                $image,
+                $format,
+                $quality,
+                $avifSpeed,
+            ));
         } finally {
             $bytes = (string) ob_get_clean();
         }
@@ -85,7 +88,7 @@ final class GdEncoder
         return $canvas;
     }
 
-    private static function write(GdImage $image, Format $format, int $quality): bool
+    private static function write(GdImage $image, Format $format, int $quality, int $avifSpeed): bool
     {
         if (Format::Jpg === $format) {
             return imagejpeg($image, file: null, quality: $quality);
@@ -99,6 +102,6 @@ final class GdEncoder
             return imagewebp($image, file: null, quality: $quality);
         }
 
-        return imageavif($image, file: null, quality: $quality, speed: self::AVIF_SPEED);
+        return imageavif($image, file: null, quality: $quality, speed: $avifSpeed);
     }
 }

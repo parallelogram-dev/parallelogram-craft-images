@@ -83,7 +83,7 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "suggest": {
-        "jcupitt/vips": "Fastest local generation, through PHP FFI and libvips (8.7 or later).",
+        "jcupitt/vips": "Fastest local generation through libvips (8.7 or later): ^2.4 with PHP's FFI extension, or ^1.0 with the vips PECL extension.",
         "ext-imagick": "Local generation with ImageMagick.",
         "ext-gd": "Local generation with GD where ImageMagick is unavailable."
     }

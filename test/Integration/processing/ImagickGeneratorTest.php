@@ -76,6 +76,23 @@ final class ImagickGeneratorTest extends TestCase
     }
 
     /**
+     * @throws GenerationFailedException
+     */
+    private static function avif(int $effort): string
+    {
+        return (new ImagickGenerator(
+            new StaticSourceFile(ImageFactory::noise(64, height: 64)),
+            new Processing(avifEffort: $effort),
+        ))->generate(
+            SourceImageFactory::make(
+                width: 64,
+                height: 64,
+            ),
+            self::file(new Box(64, null, Mode::Crop), Format::Avif),
+        );
+    }
+
+    /**
      * @return array{int, int}
      */
     private static function dimensionsOf(string $blob): array
@@ -188,6 +205,15 @@ final class ImagickGeneratorTest extends TestCase
             );
 
         static::assertTrue(self::pixel($output, x: 25, y: 25)->isPixelSimilar(new ImagickPixel($colour), fuzz: 0.1));
+    }
+
+    /**
+     * @throws GenerationFailedException
+     */
+    #[Test]
+    public function encodesAvifWithTheConfiguredEffort(): void
+    {
+        static::assertNotSame(self::avif(effort: 0), self::avif(effort: 9));
     }
 
     /**

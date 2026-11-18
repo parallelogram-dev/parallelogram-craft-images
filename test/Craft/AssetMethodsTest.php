@@ -10,6 +10,7 @@ use craft\web\View;
 use Override;
 use parallelogram\images\craft\AssetMethods;
 use parallelogram\images\craft\AssetPictures;
+use parallelogram\images\craft\PictureServiceFactory;
 use parallelogram\images\Plugin;
 use parallelogram\images\test\TestAsset\Factory\ImageFactory;
 use parallelogram\images\test\Trait\UsesCraftAppTrait;
@@ -29,6 +30,7 @@ use function str_contains;
  * @internal
  */
 #[CoversClass(AssetMethods::class)]
+#[CoversClass(PictureServiceFactory::class)]
 #[CoversClass(Plugin::class)]
 #[Group('integration')]
 #[Group('craft')]

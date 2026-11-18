@@ -65,6 +65,11 @@ final readonly class GdGenerator implements VariantGeneratorInterface
             $this->processing->sharpenAmount,
         );
 
-        return GdEncoder::encode($rendered, $file->variant->format, $file->variant->quality);
+        return GdEncoder::encode(
+            $rendered,
+            $file->variant->format,
+            $file->variant->quality,
+            $this->processing->avifSpeed(),
+        );
     }
 }

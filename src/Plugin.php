@@ -16,6 +16,7 @@ use Override;
 use parallelogram\images\backends\BackendKind;
 use parallelogram\images\craft\AssetMethods;
 use parallelogram\images\craft\AssetPictures;
+use parallelogram\images\craft\BlitzIntegration;
 use parallelogram\images\craft\ControlPanelEvents;
 use parallelogram\images\craft\DeliveryFactory;
 use parallelogram\images\craft\LiveCraftEnvironment;
@@ -26,6 +27,7 @@ use parallelogram\images\craft\Warming;
 use parallelogram\images\craft\WarmingEvents;
 use parallelogram\images\craft\WarmingFactory;
 use parallelogram\images\delivery\VariantRequestHandler;
+use parallelogram\images\events\PlaceholderSavedEvent;
 use parallelogram\images\models\Settings;
 use parallelogram\images\models\SettingsView;
 use parallelogram\images\sizing\Format;
@@ -52,6 +54,13 @@ use function trim;
  */
 final class Plugin extends BasePlugin
 {
+    /**
+     * Fired with a {@see PlaceholderSavedEvent} after an image's placeholder
+     * colour is stored. Listen with
+     * `Event::on(Plugin::class, Plugin::EVENT_AFTER_SAVE_PLACEHOLDER, ...)`.
+     */
+    public const string EVENT_AFTER_SAVE_PLACEHOLDER = 'afterSavePlaceholder';
+
     public bool $hasCpSettings = true;
 
     public string $schemaVersion = '0.1.0';
@@ -111,6 +120,7 @@ final class Plugin extends BasePlugin
         Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_SITE_URL_RULES, [self::class, 'registerVariantRoute']);
 
         AssetMethods::register(fn(): AssetPictures => (self::getInstance() ?? $this)->pictures());
+        BlitzIntegration::register();
         PlaceholderEvents::register();
         ControlPanelEvents::register();
         WarmingEvents::register();

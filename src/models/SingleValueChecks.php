@@ -6,10 +6,11 @@ namespace parallelogram\images\models;
 
 use parallelogram\images\config\AssignmentConfig;
 use parallelogram\images\sizing\InvalidSizeSetException;
+use parallelogram\images\variants\Processing;
 
 /**
  * Checks the settings that each stand alone: field assignment shape, site
- * quality, sharpening, threads and the variant prefix. One message per
+ * quality, AVIF effort, sharpening, threads and the variant prefix. One message per
  * setting.
  *
  * @internal
@@ -33,6 +34,10 @@ final class SingleValueChecks
             $settings->siteQuality();
         } catch (InvalidSizeSetException $exception) {
             $errors['formatQuality'] = $exception->getMessage();
+        }
+
+        if ($settings->avifEffort < 0 || $settings->avifEffort > Processing::MAX_AVIF_EFFORT) {
+            $errors['avifEffort'] = 'AVIF effort must be a whole number from 0 to 9.';
         }
 
         if ($settings->sharpenAmount < 0.0 || $settings->sharpenAmount > 5.0) {

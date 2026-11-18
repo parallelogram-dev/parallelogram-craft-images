@@ -58,7 +58,7 @@
 </div>
 
 <div class="pi-pane hidden" data-pane="assignments">
-    <p class="instructions">{{ 'Choose which size sets to generate ahead of time when an image is added to each field. Templates can use any size set; anything not generated ahead of time is made the first time it is requested.'|t('p-images') }}</p>
+    <p class="instructions">{{ 'Choose which size sets to generate ahead of time for the images in each field, when you run `php craft p-images/warm` or use the Utilities button. Nothing is made when an image is uploaded or saved. Templates can use any size set; anything not generated ahead of time is made the first time it is requested.'|t('p-images') }}</p>
 
     {% set handles = view.sizeSetHandles() %}
     <input type="hidden" name="fieldAssignmentInput[__submitted]" value="1">
@@ -153,6 +153,19 @@
     }) }}
 
     {{ forms.textField({
+        label: 'AVIF effort'|t('p-images'),
+        instructions: 'How hard the AVIF encoder works, from 0 (quickest, largest files) to 9 (slowest, smallest). Applies to ImageMagick, libvips and GD; imgproxy and Cloudflare ignore it. Backends write different bytes even at the same effort. Changing it leaves existing variants as they are; rebuild to apply it to them.'|t('p-images'),
+        id: 'avifEffort',
+        name: 'avifEffort',
+        value: settings.avifEffort,
+        type: 'number',
+        min: 0,
+        max: 9,
+        size: 4,
+        errors: settings.getErrors('avifEffort')
+    }) }}
+
+    {{ forms.textField({
         label: 'ImageMagick thread limit'|t('p-images'),
         instructions: 'Threads each encode may use. 0 leaves ImageMagick’s default. More threads speed up AVIF on multi-core servers; keep it a few below your core count.'|t('p-images'),
         id: 'threadLimit',
@@ -211,7 +224,7 @@
 
     {{ forms.selectField({
         label: 'Site backend'|t('p-images'),
-        instructions: 'What makes the images. Auto uses ImageMagick when it’s installed, otherwise GD. imgproxy and Cloudflare make images themselves and pages link to them directly.'|t('p-images'),
+        instructions: 'What makes the images. Auto uses libvips when php-vips can load it, otherwise ImageMagick when it’s installed, otherwise GD. imgproxy and Cloudflare make images themselves and pages link to them directly.'|t('p-images'),
         id: 'backends-default',
         name: 'backends[default]',
         options: backendOptions,

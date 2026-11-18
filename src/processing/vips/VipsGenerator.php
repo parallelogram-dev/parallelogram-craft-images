@@ -19,8 +19,9 @@ use parallelogram\images\variants\SourceImage;
 use parallelogram\images\variants\VariantFile;
 
 /**
- * Makes variants with libvips through php-vips (PHP's FFI extension): the
- * fastest and least memory-hungry local backend.
+ * Makes variants with libvips through php-vips (2.x with PHP's FFI extension,
+ * or 1.x with the `vips` extension, which share one API): the fastest and
+ * least memory-hungry local backend.
  *
  * It follows the same {@see ResizePlan} as the other generators: decode the
  * first frame, auto-orient, convert to sRGB (through an embedded ICC profile
@@ -82,7 +83,9 @@ final readonly class VipsGenerator implements VariantGeneratorInterface
             return $image->writeToBuffer('.png', ['compression' => 6] + $strip);
         }
 
-        return $image->writeToBuffer(".{$format->value}", ['Q' => $quality] + $strip);
+        $effort = Format::Avif === $format ? ['effort' => $this->processing->avifEffort] : [];
+
+        return $image->writeToBuffer(".{$format->value}", ['Q' => $quality] + $effort + $strip);
     }
 
     /**

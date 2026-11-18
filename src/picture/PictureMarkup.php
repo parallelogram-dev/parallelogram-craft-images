@@ -14,8 +14,9 @@ use function str_replace;
  *
  * With Lazysrc, sources go in `data-lazysrc-*` attributes for ParallelogramJS
  * to copy across, and a `<noscript>` copy with real ones follows. An asset's
- * placeholder colour fills the image's box until it loads; a `style` given in
- * the template's attributes replaces it.
+ * placeholder colour fills the `<picture>`'s box until the image loads (the
+ * image itself is often hidden until then, so a colour on it wouldn't show);
+ * a `style` given in the template's `pictureAttributes` replaces it.
  *
  * @internal
  */
@@ -53,7 +54,7 @@ final class PictureMarkup
     {
         $prefix = Loading::Lazysrc === $options->loading ? 'data-lazysrc-' : '';
         $sizes  = $options->sizes ?? $picture->sizes;
-        $html   = '<picture' . HtmlAttributes::render($options->picture->all()) . '>';
+        $html   = '<picture' . HtmlAttributes::render($options->picture->all(self::placeholder($picture))) . '>';
 
         foreach ($art as $direction) {
             if (null === $direction->picture) {
@@ -87,7 +88,6 @@ final class PictureMarkup
             'sizes'  => $sizes,
             'width'  => $picture->size->width,
             'height' => $picture->size->height,
-            'style'  => null === $picture->colour ? null : "background-color:{$picture->colour}",
         ];
 
         if (Loading::Lazysrc !== $options->loading) {
@@ -101,7 +101,6 @@ final class PictureMarkup
             'data-lazysrc-sizes'  => $real['sizes'],
             'width'               => $real['width'],
             'height'              => $real['height'],
-            'style'               => $real['style'],
         ];
 
         return (
@@ -138,6 +137,14 @@ final class PictureMarkup
                 ))
                 . '>'
         );
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private static function placeholder(PictureSources $picture): array
+    {
+        return ['style' => null === $picture->colour ? null : "background-color:{$picture->colour}"];
     }
 
     private static function source(

@@ -107,6 +107,23 @@ final class VipsGeneratorTest extends TestCase
         ];
     }
 
+    /**
+     * @throws GenerationFailedException
+     */
+    private static function avif(int $effort): string
+    {
+        return (new VipsGenerator(
+            new StaticSourceFile(ImageFactory::noise(64, height: 64)),
+            new Processing(avifEffort: $effort),
+        ))->generate(
+            SourceImageFactory::make(
+                width: 64,
+                height: 64,
+            ),
+            self::file(new Box(64, null, Mode::Crop), Format::Avif),
+        );
+    }
+
     private static function colourAt(GdImage $image, int $x, int $y): string
     {
         $colour = imagecolorat($image, $x, $y);
@@ -221,6 +238,15 @@ final class VipsGeneratorTest extends TestCase
             );
 
         static::assertSame($colour, self::colourAt(self::decode($output), x: 25, y: 25));
+    }
+
+    /**
+     * @throws GenerationFailedException
+     */
+    #[Test]
+    public function encodesAvifWithTheConfiguredEffort(): void
+    {
+        static::assertNotSame(self::avif(effort: 0), self::avif(effort: 9));
     }
 
     /**

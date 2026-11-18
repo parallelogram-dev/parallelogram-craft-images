@@ -9,7 +9,7 @@
 
 {% from _self import action %}
 
-<p class="instructions">{{ 'Image variants are made the first time they’re asked for, and ahead of time when images are added to fields chosen on the Pre-generate tab. These buttons queue the same work for images already uploaded; progress shows in the queue.'|t('p-images') }}</p>
+<p class="instructions">{{ 'Image variants are made the first time they’re asked for; nothing is made when an image is uploaded. These buttons queue making the size sets chosen on the Pre-generate tab for images already uploaded, or removing variants nothing can ask for; progress shows in the queue.'|t('p-images') }}</p>
 
 {{ action(
     'p-images/utility/warm',

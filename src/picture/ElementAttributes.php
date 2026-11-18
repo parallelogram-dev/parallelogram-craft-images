@@ -24,12 +24,15 @@ final readonly class ElementAttributes
 
     /**
      * Every attribute to write, the class first. Attributes given in
-     * `attributes` replace ones of the same name the plugin writes.
+     * `attributes` replace ones of the same name the plugin writes, which are
+     * passed as `$defaults`.
+     *
+     * @param array<string, scalar|null> $defaults
      *
      * @return array<string, scalar|null>
      */
-    public function all(): array
+    public function all(array $defaults = []): array
     {
-        return array_replace(['class' => $this->class], $this->attributes);
+        return array_replace(['class' => $this->class], $defaults, $this->attributes);
     }
 }

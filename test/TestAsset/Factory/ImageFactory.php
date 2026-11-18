@@ -33,6 +33,36 @@ final class ImageFactory
     }
 
     /**
+     * A PNG of the same pseudo-random pixels every time, which an encoder has
+     * to work at: how hard it tries shows in the file it writes.
+     */
+    public static function noise(int $width, int $height): string
+    {
+        $state  = 7;
+        $pixels = [];
+
+        for ($index = 0; $index < ($width * $height * 3); ++$index) {
+            $state    = (($state * 1_103_515_245) + 12_345) & 0x7FFF_FFFF;
+            $pixels[] = ($state >> 16) & 0xFF;
+        }
+
+        $image = new Imagick();
+        $image->newImage($width, $height, new ImagickPixel('black'));
+        $image->importImagePixels(
+            x: 0,
+            y: 0,
+            width: $width,
+            height: $height,
+            map: 'RGB',
+            pixelstorage: Imagick::PIXEL_CHAR,
+            pixels: $pixels,
+        );
+        $image->setImageFormat('png');
+
+        return $image->getImageBlob();
+    }
+
+    /**
      * A PNG whose left half is red and right half is blue, for checking which
      * part of an image a crop kept.
      */

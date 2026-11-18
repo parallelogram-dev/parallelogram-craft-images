@@ -16,6 +16,7 @@ use parallelogram\images\sizing\Format;
 use parallelogram\images\sizing\InvalidSizeSetException;
 use parallelogram\images\sizing\QualityTable;
 use parallelogram\images\sizing\SizeSetCatalogue;
+use parallelogram\images\variants\Processing;
 
 use function array_map;
 
@@ -48,6 +49,13 @@ final class Settings extends Model
     public array $alternateRows = [];
 
     public bool $autoOrient = true;
+
+    /**
+     * How hard the AVIF encoder works, from 0 (quickest, largest files) to 9
+     * (slowest, smallest). The backends encode AVIF to different bytes even
+     * at the same effort. Imgproxy and Cloudflare ignore it.
+     */
+    public int $avifEffort = Processing::DEFAULT_AVIF_EFFORT;
 
     /**
      * Which backend makes variants, site-wide and per volume, and the remote
@@ -231,6 +239,7 @@ final class Settings extends Model
                     'alternateRows',
                     'alternates',
                     'autoOrient',
+                    'avifEffort',
                     'backends',
                     'convertToSrgb',
                     'defaultFormats',

@@ -19,6 +19,7 @@ use parallelogram\images\sizing\Format;
 use parallelogram\images\sizing\Mode;
 use parallelogram\images\sizing\Variant;
 use parallelogram\images\test\TestAsset\Factory\GdImageFactory;
+use parallelogram\images\test\TestAsset\Factory\ImageFactory;
 use parallelogram\images\test\TestAsset\Factory\SourceImageFactory;
 use parallelogram\images\test\TestAsset\Fake\StaticSourceFile;
 use parallelogram\images\variants\Dimensions;
@@ -108,6 +109,23 @@ final class GdGeneratorTest extends TestCase
             'mirrored, turned right' => [7, '20x40 WBWR'],
             'turned left'            => [8, '20x40 BWRW'],
         ];
+    }
+
+    /**
+     * @throws GenerationFailedException
+     */
+    private static function avif(int $effort): string
+    {
+        return (new GdGenerator(
+            new StaticSourceFile(ImageFactory::noise(64, height: 64)),
+            new Processing(avifEffort: $effort),
+        ))->generate(
+            SourceImageFactory::make(
+                width: 64,
+                height: 64,
+            ),
+            self::file(new Box(64, null, Mode::Crop), Format::Avif),
+        );
     }
 
     private static function colourAt(GdImage $image, int $x, int $y): string
@@ -202,6 +220,15 @@ final class GdGeneratorTest extends TestCase
             );
 
         static::assertSame($colour, self::colourAt(self::decode($output), x: 25, y: 25));
+    }
+
+    /**
+     * @throws GenerationFailedException
+     */
+    #[Test]
+    public function encodesAvifWithTheConfiguredEffort(): void
+    {
+        static::assertNotSame(self::avif(effort: 0), self::avif(effort: 9));
     }
 
     /**

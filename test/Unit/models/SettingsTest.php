@@ -125,6 +125,16 @@ final class SettingsTest extends TestCase
                 'formatQuality',
                 'Avif quality must be a whole number from 1 to 100.',
             ],
+            'effort too high'      => [
+                ['avifEffort' => 10],
+                'avifEffort',
+                'AVIF effort must be a whole number from 0 to 9.',
+            ],
+            'effort negative'      => [
+                ['avifEffort' => -1],
+                'avifEffort',
+                'AVIF effort must be a whole number from 0 to 9.',
+            ],
             'sharpen too strong' => [['sharpenAmount' => 5.5], 'sharpenAmount', 'Sharpen amount must be from 0 to 5.'],
             'sharpen negative'   => [['sharpenAmount' => -1.0], 'sharpenAmount', 'Sharpen amount must be from 0 to 5.'],
             'too many threads'   => [['threadLimit' => 65], 'threadLimit', 'Thread limit must be from 0 to 64.'],

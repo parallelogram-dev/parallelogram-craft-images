@@ -17,6 +17,7 @@ use craft\web\UrlRule;
 use craft\web\View;
 use Imagick;
 use Override;
+use parallelogram\images\craft\Warming;
 use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\Plugin;
 use parallelogram\images\test\TestAsset\EnvironmentVariables;
@@ -158,6 +159,18 @@ final class PluginTest extends TestCase
         $this->configureVariants();
 
         static::assertSame([null, true], [$before, $this->plugin()->delivery() instanceof VariantRequestHandler]);
+    }
+
+    /**
+     * @throws Exception
+     */
+    #[Test]
+    public function buildsTheWarmingServiceOnlyOnceConfigured(): void
+    {
+        $before = $this->plugin()->warming();
+        $this->configureVariants();
+
+        static::assertSame([null, true], [$before, $this->plugin()->warming() instanceof Warming]);
     }
 
     /**

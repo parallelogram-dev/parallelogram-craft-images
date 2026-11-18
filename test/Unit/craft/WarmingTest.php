@@ -126,29 +126,16 @@ final class WarmingTest extends TestCase
      * @throws StorageFailedException
      */
     #[Test]
-    public function keepsTheOldVariantsWhenNewOnesCouldntBeMade(): void
+    public function leavesFilesThatAreNotResizedAlone(): void
     {
         $store                     = new InMemoryVariantStore();
         $store->files[self::STALE] = 'old';
+        $warming                   = $this->warming($store);
+        $svg                       = $this->stubAsset(['filename' => 'logo.svg']);
 
-        $result = $this->warming($store, fails: true)->warmAndClean($this->stubAsset(), ['card']);
+        $warming->removeStale($svg);
 
-        static::assertEquals([new WarmResult(failed: 4), 'old'], [
-            $result,
-            $store->files[self::STALE] ?? 'removed',
-        ]);
-    }
-
-    /**
-     * @throws StorageFailedException
-     */
-    #[Test]
-    public function leavesFilesThatAreNotResizedAlone(): void
-    {
-        $warming = $this->warming(new InMemoryVariantStore());
-        $svg     = $this->stubAsset(['filename' => 'logo.svg']);
-
-        static::assertSame([null, null], [$warming->warm($svg, ['card']), $warming->warmAndClean($svg, ['card'])]);
+        static::assertSame([null, 'old'], [$warming->warm($svg, ['card']), $store->files[self::STALE] ?? 'removed']);
     }
 
     #[Test]
@@ -190,18 +177,16 @@ final class WarmingTest extends TestCase
      * @throws StorageFailedException
      */
     #[Test]
-    public function removesVariantsNoSizeSetDefinesOnceTheNewOnesExist(): void
+    public function removesVariantsNoSizeSetDefinesAndKeepsTheCurrentOnes(): void
     {
-        $store                     = new InMemoryVariantStore();
+        $store   = new InMemoryVariantStore();
+        $warming = $this->warming($store);
+        $warming->warm($this->stubAsset(), ['card']);
         $store->files[self::STALE] = 'old';
 
-        $result = $this->warming($store)->warmAndClean($this->stubAsset(), ['card']);
+        $warming->removeStale($this->stubAsset());
 
-        static::assertEquals([new WarmResult(made: 4), false, 4], [
-            $result,
-            array_key_exists(self::STALE, $store->files),
-            count($store->files),
-        ]);
+        static::assertSame([false, 4], [array_key_exists(self::STALE, $store->files), count($store->files)]);
     }
 
     /**

@@ -80,6 +80,22 @@ final readonly class Warming
     }
 
     /**
+     * Removes the variants an image's current file can no longer be asked
+     * for, as after the file is replaced. Nothing for images that aren't
+     * resized here.
+     *
+     * @throws StorageFailedException
+     */
+    public function removeStale(Asset $asset): void
+    {
+        $source = $this->resizable($asset);
+
+        if (null !== $source) {
+            $this->cleaner->removeStale($source);
+        }
+    }
+
+    /**
      * Removes stale variants of every asset, and every variant of assets that
      * are gone.
      *
@@ -101,32 +117,6 @@ final readonly class Warming
         $source = $this->resizable($asset);
 
         return null === $source ? null : $this->warmer->warm($source, $sizeSets);
-    }
-
-    /**
-     * Makes an image's variants in the given size sets, then, once every file
-     * exists, removes any the size sets no longer define, as after the image
-     * is replaced. Null for images that aren't resized here.
-     *
-     * @param list<string> $sizeSets Handles.
-     *
-     * @throws StorageFailedException
-     */
-    public function warmAndClean(Asset $asset, array $sizeSets): ?WarmResult
-    {
-        $source = $this->resizable($asset);
-
-        if (null === $source) {
-            return null;
-        }
-
-        $result = $this->warmer->warm($source, $sizeSets);
-
-        if (0 === $result->failed) {
-            $this->cleaner->removeStale($source);
-        }
-
-        return $result;
     }
 
     /**

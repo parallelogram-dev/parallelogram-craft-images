@@ -12,7 +12,10 @@ use craft\errors\InvalidFieldException;
 use craft\helpers\Db;
 use craft\helpers\Json;
 use parallelogram\images\colour\HexColour;
+use parallelogram\images\events\PlaceholderSavedEvent;
 use parallelogram\images\fields\PlaceholderColourField;
+use parallelogram\images\Plugin;
+use yii\base\Event;
 use yii\base\Exception;
 
 use function array_keys;
@@ -25,7 +28,8 @@ use function is_string;
  * Writing goes straight to the asset's stored content for every site rather
  * than through an element save, so working a colour out never creates a
  * revision, fires save events or re-queues itself; only caches tagged with
- * that asset are cleared.
+ * that asset are cleared. Once it's stored, the plugin's
+ * {@see Plugin::EVENT_AFTER_SAVE_PLACEHOLDER} is fired.
  *
  * @internal
  */
@@ -87,6 +91,7 @@ final class PlaceholderStore
         }
 
         Craft::$app->getElements()->invalidateCachesForElement($asset);
+        Event::trigger(Plugin::class, Plugin::EVENT_AFTER_SAVE_PLACEHOLDER, new PlaceholderSavedEvent($asset, $colour));
 
         return true;
     }
