@@ -37,13 +37,10 @@ excludes = [
     "src/jobs/RebuildJob.php",
     "src/jobs/WarmJob.php",
     "src/listeners/AssetEvents.php",
-    "src/models/VariantSet.php",
     "src/services/Generator.php",
     "src/services/Pipeline.php",
-    "src/services/Resolver.php",
     "src/services/Warmer.php",
     "src/utilities/WarmUtility.php",
-    "src/web/twig/VariantsVariable.php",
     "test/bootstrap.php",
 ]
 minimum-fail-level = "Help"
@@ -132,13 +129,10 @@ ignore = [
     "src/jobs/RebuildJob.php",
     "src/jobs/WarmJob.php",
     "src/listeners/AssetEvents.php",
-    "src/models/VariantSet.php",
     "src/services/Generator.php",
     "src/services/Pipeline.php",
-    "src/services/Resolver.php",
     "src/services/Warmer.php",
     "src/utilities/WarmUtility.php",
-    "src/web/twig/VariantsVariable.php",
     "test/bootstrap.php",
     ] },
 ]

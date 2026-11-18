@@ -144,6 +144,18 @@
         size: 4,
         errors: settings.getErrors('threadLimit')
     }) }}
+
+    <hr>
+
+    <h2>{{ 'Markup'|t('p-images') }}</h2>
+
+    {{ forms.lightswitchField({
+        label: 'Use Lazysrc by default'|t('p-images'),
+        instructions: 'Have `asset.picture()` hand its sources to ParallelogramJS’s Lazysrc, with a `<noscript>` copy, unless a template passes `lazysrc: false`. Off writes native lazy-loading markup.'|t('p-images'),
+        id: 'lazysrcByDefault',
+        name: 'lazysrcByDefault',
+        on: settings.lazysrcByDefault
+    }) }}
 </div>
 
 <div class="pi-pane hidden" data-pane="delivery">

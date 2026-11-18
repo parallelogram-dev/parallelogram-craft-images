@@ -21,6 +21,10 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use yii\base\InvalidConfigException;
 
+use function pathinfo;
+
+use const PATHINFO_EXTENSION;
+
 /**
  * Assets are stubbed: a real one needs a running Craft application.
  *
@@ -48,6 +52,14 @@ final class AssetSourceTest extends TestCase
     }
 
     /**
+     * @return array<string, array{string}>
+     */
+    public static function untouchedFilenameProvider(): array
+    {
+        return ['svg' => ['logo.svg'], 'gif' => ['spinner.GIF']];
+    }
+
+    /**
      * @return array<string, array{string, string|null, int|null, int|null, string}>
      */
     public static function unusableAssetProvider(): array
@@ -60,6 +72,13 @@ final class AssetSourceTest extends TestCase
             'no dimensions'      => [Asset::KIND_IMAGE, $uid, null, null, 'harbour.jpg'],
             'unusable file name' => [Asset::KIND_IMAGE, $uid, 100, 100, '...'],
         ];
+    }
+
+    #[DataProvider('untouchedFilenameProvider')]
+    #[Test]
+    public function leavesSvgsAndGifsAsUploaded(string $filename): void
+    {
+        static::assertNull(AssetSource::from($this->asset(['filename' => $filename])));
     }
 
     #[Test]
@@ -145,6 +164,7 @@ final class AssetSourceTest extends TestCase
         $asset->uid          = $values['uid'];
         $asset->dateModified = new DateTime('@1762000000');
         $asset->method('getFilename')->willReturn($values['filename']);
+        $asset->method('getExtension')->willReturn(pathinfo($values['filename'], PATHINFO_EXTENSION));
         $asset->method('getWidth')->willReturn($values['width']);
         $asset->method('getHeight')->willReturn($values['height']);
         $asset->method('getFocalPoint')->willReturn($values['focalPoint']);

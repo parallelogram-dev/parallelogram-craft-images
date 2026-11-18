@@ -10,6 +10,31 @@ Responsive image variants for Craft CMS. You define named size sets (an aspect r
 - Craft CMS 5.6 or later
 - Imagick or php-vips (FFI) for local generation, or an imgproxy or Cloudflare Images account
 
+## Templates
+
+```twig
+{# A <picture> in the "card" size set: native lazy loading #}
+{{ asset.picture('card', {class: 'card__image'}) }}
+
+{# The largest image above the fold loads straight away #}
+{{ entry.hero.one().picture('hero', {priority: true}) }}
+
+{# ParallelogramJS Lazysrc markup, plus a square crop on phones #}
+{{ asset.picture('wide', {
+    lazysrc: true,
+    sources: [{media: '(max-width: 600px)', sizeSet: 'square'}],
+}) }}
+
+{# The sources as data, for markup of your own #}
+{% set variants = asset.variants('card') %}
+<img src="{{ variants.fallback.url }}" srcset="{{ variants.srcset('jpg') }}" sizes="{{ variants.sizes }}"
+     width="{{ variants.size.width }}" height="{{ variants.size.height }}" alt="">
+```
+
+Options for `asset.picture()`: `alt` (defaults to the asset's alt text), `class`, `sizes` (defaults to the size set's), `lazysrc`, `priority`, `attributes` (any other `<img>` attributes) and `sources` (`{media, asset, sizeSet}`, where `asset` and `sizeSet` default to the picture's own). The "Use Lazysrc by default" setting makes `lazysrc: true` the default.
+
+Until a variant filesystem and prefix are chosen, and for SVGs and GIFs, `asset.picture()` shows the original file. An unknown size set or option is an error in dev mode; in production it's logged and the original is shown.
+
 ## Development
 
 ```bash

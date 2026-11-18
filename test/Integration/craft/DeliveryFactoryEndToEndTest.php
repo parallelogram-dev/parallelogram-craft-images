@@ -11,6 +11,7 @@ use Imagick;
 use parallelogram\images\backends\BackendAvailability;
 use parallelogram\images\backends\BackendChoice;
 use parallelogram\images\backends\BackendKind;
+use parallelogram\images\backends\RemoteSettings;
 use parallelogram\images\backends\VolumeRoutingGenerator;
 use parallelogram\images\config\BackendConfig;
 use parallelogram\images\config\ConfigValues;
@@ -18,16 +19,20 @@ use parallelogram\images\config\EncodingConfig;
 use parallelogram\images\config\FitConfig;
 use parallelogram\images\config\SizeSetConfig;
 use parallelogram\images\craft\AssetSource;
+use parallelogram\images\craft\ConfiguredVariants;
 use parallelogram\images\craft\CraftSourceFile;
 use parallelogram\images\craft\CraftSourceLookup;
 use parallelogram\images\craft\DeliveryFactory;
 use parallelogram\images\craft\FsVariantStore;
 use parallelogram\images\craft\MutexVariantLock;
+use parallelogram\images\craft\VariantBackends;
+use parallelogram\images\craft\VariantStorage;
 use parallelogram\images\delivery\Delivery;
 use parallelogram\images\delivery\DeliveryOutcome;
 use parallelogram\images\delivery\DeliveryPorts;
 use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\models\Settings;
+use parallelogram\images\picture\StoredVariantLinks;
 use parallelogram\images\processing\gd\GdGenerator;
 use parallelogram\images\processing\ImagickGenerator;
 use parallelogram\images\processing\Rect;
@@ -110,6 +115,11 @@ use function array_key_exists;
 #[UsesClass(VariantRequestHandler::class)]
 #[UsesClass(VipsGenerator::class)]
 #[UsesClass(VolumeRoutingGenerator::class)]
+#[UsesClass(RemoteSettings::class)]
+#[UsesClass(ConfiguredVariants::class)]
+#[UsesClass(VariantBackends::class)]
+#[UsesClass(VariantStorage::class)]
+#[UsesClass(StoredVariantLinks::class)]
 #[Group('integration')]
 final class DeliveryFactoryEndToEndTest extends TestCase
 {

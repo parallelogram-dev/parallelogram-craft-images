@@ -73,6 +73,12 @@ final class Settings extends Model
      */
     public array $formatQuality = [];
 
+    /**
+     * Whether `asset.picture()` writes Lazysrc markup unless a template asks
+     * otherwise with `lazysrc: false`.
+     */
+    public bool $lazysrcByDefault = false;
+
     public float $sharpenAmount = 0.5;
 
     /**
@@ -213,6 +219,7 @@ final class Settings extends Model
                     'fieldAssignmentInput',
                     'fieldAssignments',
                     'formatQuality',
+                    'lazysrcByDefault',
                     'sharpenAmount',
                     'sizeSetRows',
                     'sizeSets',

@@ -16,13 +16,18 @@
 - Cloudflare Images transform-via-URL links. Cloudflare can't output PNG, may enlarge letterboxed or stretched images, and always pads with white.
 - Backend choice: site-wide (auto: ImageMagick, then GD; or imgproxy or Cloudflare) with per-volume overrides. The imgproxy key and salt must be environment variables.
 - The variant route: `{prefix}/…` requests the web server can't satisfy are answered by the plugin once a filesystem and prefix are chosen. A Delivery tab in the settings covers the filesystem, prefix, backends and service details.
+- `asset.picture('handle', {...})`: a `<picture>` with a `<source>` per modern format and an `<img>` in the fallback format, each `srcset` describing files by the width they really have. Options: `alt`, `class`, `sizes`, `lazysrc` (ParallelogramJS `data-lazysrc-*` markup with a `<noscript>` copy), `priority` (`fetchpriority="high"`, never lazy), `attributes` and art-directed `sources` (`{media, asset, sizeSet}`). Unknown or mistyped options are errors.
+- `asset.variants('handle')`: the same sources as data, e.g. `asset.variants('card').srcset('avif')`.
+- A "Use Lazysrc by default" setting; templates opt out with `lazysrc: false`.
+- Until variants are configured, and for SVGs, GIFs and other files that aren't resized, pictures show the original file, with an explaining HTML comment in dev mode. An unknown size set or option is an error in dev mode; in production it's logged and the original is shown.
+- Pages link straight to variant files served from the site's own domain, to the site's variant route (which redirects) for files kept in a bucket or CDN, and to imgproxy or Cloudflare for volumes that use them.
 - A Craft integration suite (`phpunit.craft.xml`) that boots the sandbox site against its own test database.
 - `P_IMAGES_SECRET` is written to `.env` on install if it isn't already set.
 - `PrototypeConverter`, which turns the prototype's matrices and field-handle assignments into size sets and UID-keyed assignments, with notes on anything that couldn't carry over.
 
 ### Changed
 - Split out of the client project where it began as "Parallelogram Image Variants", keeping its history.
-- Renamed to Parallelogram Images: package `parallelogram/craft-images`, handle `p-images`, namespace `parallelogram\images`, Twig variable `craft.pImages`.
+- Renamed to Parallelogram Images: package `parallelogram/craft-images`, handle `p-images`, namespace `parallelogram\images`.
 - Licensed under the Craft Licence.
 - Tooling moved to Mago (format, lint, analyse) and PHPUnit 12, with tests in `test/`.
 - New installs start with no size sets; the prototype's seeded sets were specific to one site.
@@ -31,5 +36,6 @@
 - The prototype's warm utility, rebuild action and asset-save hooks, until warming is rebuilt.
 - The bundled 1998 HP sRGB profile, replaced by the ICC's freely redistributable sRGB v4 preference profile (see THIRD-PARTY-NOTICES.md).
 - Moving variants when an asset is moved or renamed, which UID-based paths make unnecessary.
+- The prototype's `craft.pImages.variantSet()` Twig variable, replaced by `asset.picture()` and `asset.variants()`.
 - Writing variants into Craft's transform paths.
 - The "fast generate" setting, which is replaced by the backend choice in a later step.

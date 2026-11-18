@@ -11,8 +11,10 @@ use parallelogram\images\variants\InvalidVariantException;
 use parallelogram\images\variants\SourceImage;
 use yii\base\InvalidConfigException;
 
+use function in_array;
 use function is_array;
 use function is_numeric;
+use function strtolower;
 
 /**
  * Reads the facts variants depend on from a Craft asset.
@@ -22,18 +24,27 @@ use function is_numeric;
 final class AssetSource
 {
     /**
+     * Formats shown as uploaded: SVGs scale by themselves, and resizing a GIF
+     * would lose its animation.
+     */
+    private const array UNTOUCHED = ['gif', 'svg'];
+
+    /**
      * Null for anything that isn't a resizable image: other kinds of file,
-     * images without dimensions, or file names that leave nothing to use.
+     * SVGs and GIFs, images without dimensions, or file names that leave
+     * nothing to use.
      */
     public static function from(Asset $asset): ?SourceImage
     {
-        if (Asset::KIND_IMAGE !== $asset->kind || null === $asset->uid) {
+        $uid = $asset->uid;
+
+        if (null === $uid || ! self::isResizable($asset)) {
             return null;
         }
 
         try {
             return new SourceImage(
-                $asset->uid,
+                $uid,
                 $asset->getFilename(),
                 new Dimensions($asset->getWidth() ?? 0, $asset->getHeight() ?? 0),
                 $asset->dateModified?->getTimestamp() ?? 0,
@@ -51,5 +62,13 @@ final class AssetSource
         }
 
         return new FocalPoint((float) $value['x'], (float) $value['y']);
+    }
+
+    private static function isResizable(Asset $asset): bool
+    {
+        return (
+            Asset::KIND_IMAGE === $asset->kind
+                && ! in_array(strtolower($asset->getExtension()), self::UNTOUCHED, strict: true)
+        );
     }
 }

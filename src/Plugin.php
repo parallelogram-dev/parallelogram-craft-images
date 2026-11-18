@@ -14,12 +14,16 @@ use craft\web\View;
 use Imagick;
 use Override;
 use parallelogram\images\backends\BackendKind;
+use parallelogram\images\craft\AssetMethods;
+use parallelogram\images\craft\AssetPictures;
+use parallelogram\images\craft\ConfiguredVariants;
 use parallelogram\images\craft\DeliveryFactory;
 use parallelogram\images\craft\LiveCraftEnvironment;
 use parallelogram\images\craft\SecretProvisioner;
 use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\models\Settings;
 use parallelogram\images\models\SettingsView;
+use parallelogram\images\picture\Loading;
 use parallelogram\images\sizing\Format;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -47,6 +51,8 @@ final class Plugin extends BasePlugin
     public bool $hasCpSettings = true;
 
     public string $schemaVersion = '0.1.0';
+
+    private ?AssetPictures $assetPictures = null;
 
     private ?VariantRequestHandler $deliveryHandler = null;
 
@@ -97,6 +103,26 @@ final class Plugin extends BasePlugin
         }
 
         Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_SITE_URL_RULES, [self::class, 'registerVariantRoute']);
+
+        AssetMethods::register(fn(): AssetPictures => (self::getInstance() ?? $this)->pictures());
+    }
+
+    /**
+     * What `asset.picture()` and `asset.variants()` use, built from the
+     * current settings.
+     */
+    public function pictures(): AssetPictures
+    {
+        $settings = $this->getSettings();
+
+        return $this->assetPictures ??= new AssetPictures(
+            ConfiguredVariants::from($settings, new LiveCraftEnvironment()),
+            Craft::$app->getConfig()->getGeneral()->devMode,
+            static function (string $message): void {
+                Craft::warning($message, category: 'p-images');
+            },
+            $settings->lazysrcByDefault ? Loading::Lazysrc : Loading::Lazy,
+        );
     }
 
     /**
@@ -109,6 +135,7 @@ final class Plugin extends BasePlugin
     public function setSettings(array $settings): void
     {
         parent::setSettings($settings);
+        $this->assetPictures   = null;
         $this->deliveryHandler = null;
     }
 

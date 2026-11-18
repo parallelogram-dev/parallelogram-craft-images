@@ -14,6 +14,7 @@ use craft\web\Response;
 use craft\web\TemplateResponseBehavior;
 use craft\web\UrlManager;
 use craft\web\UrlRule;
+use craft\web\View;
 use Imagick;
 use Override;
 use parallelogram\images\delivery\VariantRequestHandler;
@@ -190,10 +191,16 @@ final class PluginTest extends TestCase
             ? $request->setIsCpRequest(true)
             : static::fail('The suite needs a web request.');
 
+        /** @var View $view Craft's view is always its web view. */
+        $view = Craft::$app->getView();
+        $mode = $view->getTemplateMode();
+        $view->setTemplateMode(View::TEMPLATE_MODE_CP);
+
         try {
             $response = Craft::$app->runAction('plugins/edit-plugin-settings', ['handle' => 'p-images']);
             $html     = self::settingsHtml($response);
         } finally {
+            $view->setTemplateMode($mode);
             $request->setIsCpRequest(false);
             Craft::$app->getUser()->setIdentity(null);
         }
