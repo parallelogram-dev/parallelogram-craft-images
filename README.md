@@ -33,6 +33,10 @@ Responsive image variants for Craft CMS. You define named size sets (an aspect r
 
 Options for `asset.picture()`: `alt` (defaults to the asset's alt text), `class`, `sizes` (defaults to the size set's), `lazysrc`, `priority`, `attributes` (any other `<img>` attributes) and `sources` (`{media, asset, sizeSet}`, where `asset` and `sizeSet` default to the picture's own). The "Use Lazysrc by default" setting makes `lazysrc: true` the default.
 
+A size set can also have an alternate image (Settings → Size sets → Alternate images): an Assets field on the volume's layout, a media query and optionally another size set. When an asset has an image in that field, `asset.picture()` shows it while the media query matches, unless the template passes its own `sources`.
+
+For a colour behind each image while it loads, add a **Placeholder Colour** field to the volume's field layout. Colours are worked out as images are uploaded; run `php craft p-images/placeholders` once for images already there.
+
 Until a variant filesystem and prefix are chosen, and for SVGs and GIFs, `asset.picture()` shows the original file. An unknown size set or option is an error in dev mode; in production it's logged and the original is shown.
 
 ## Development

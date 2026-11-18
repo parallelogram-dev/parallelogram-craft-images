@@ -11,6 +11,7 @@ use parallelogram\images\picture\Loading;
 use parallelogram\images\picture\PictureMarkup;
 use parallelogram\images\picture\PictureOptions;
 use parallelogram\images\picture\PictureSources;
+use parallelogram\images\sizing\AlternateImages;
 use parallelogram\images\sizing\UnknownSizeSetException;
 use parallelogram\images\variants\InvalidVariantException;
 
@@ -45,8 +46,9 @@ final readonly class AssetPictures
         private bool $devMode,
         private Closure $warn,
         private Loading $defaultLoading = Loading::Lazy,
+        AlternateImages $alternates = new AlternateImages(),
     ) {
-        $this->finder = null === $variants ? null : new PictureSourcesFinder($variants);
+        $this->finder = null === $variants ? null : new PictureSourcesFinder($variants, $alternates);
     }
 
     /**

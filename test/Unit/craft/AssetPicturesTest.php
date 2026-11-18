@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace parallelogram\images\test\Unit\craft;
 
 use craft\base\FsInterface;
+use craft\elements\Asset;
+use craft\elements\ElementCollection;
 use parallelogram\images\backends\BackendChoice;
 use parallelogram\images\backends\BackendKind;
 use parallelogram\images\backends\RemoteSettings;
@@ -20,6 +22,8 @@ use parallelogram\images\craft\AssetSource;
 use parallelogram\images\craft\ConfiguredVariants;
 use parallelogram\images\craft\FsVariantStore;
 use parallelogram\images\craft\PictureSourcesFinder;
+use parallelogram\images\craft\PlaceholderStore;
+use parallelogram\images\craft\RelatedAsset;
 use parallelogram\images\craft\VariantBackends;
 use parallelogram\images\craft\VariantStorage;
 use parallelogram\images\models\Settings;
@@ -39,6 +43,8 @@ use parallelogram\images\picture\StoredVariantLinks;
 use parallelogram\images\processing\Rect;
 use parallelogram\images\processing\ResizePlan;
 use parallelogram\images\remote\CloudflareUrls;
+use parallelogram\images\sizing\AlternateImage;
+use parallelogram\images\sizing\AlternateImages;
 use parallelogram\images\sizing\AspectRatio;
 use parallelogram\images\sizing\Box;
 use parallelogram\images\sizing\Encoding;
@@ -76,6 +82,8 @@ use function substr_count;
 #[CoversClass(AssetPictures::class)]
 #[CoversClass(PictureSourcesFinder::class)]
 #[CoversClass(AssetFiles::class)]
+#[UsesClass(AlternateImage::class)]
+#[UsesClass(AlternateImages::class)]
 #[UsesClass(ArtDirection::class)]
 #[UsesClass(ArtDirectionOption::class)]
 #[UsesClass(AspectRatio::class)]
@@ -108,6 +116,8 @@ use function substr_count;
 #[UsesClass(Processing::class)]
 #[UsesClass(QualityTable::class)]
 #[UsesClass(Rect::class)]
+#[UsesClass(PlaceholderStore::class)]
+#[UsesClass(RelatedAsset::class)]
 #[UsesClass(RemoteSettings::class)]
 #[UsesClass(RemoteVariantLinks::class)]
 #[UsesClass(ResizePlan::class)]
@@ -129,6 +139,8 @@ use function substr_count;
 final class AssetPicturesTest extends TestCase
 {
     use StubsAssetsTrait;
+
+    private const string ALTERNATE_FIELD = '60f35b38-630a-49b5-9709-8c5355aaed13';
 
     private const string ART_UID = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
 
@@ -166,6 +178,40 @@ final class AssetPicturesTest extends TestCase
                 ),
                 substr_count($html, needle: 'sizes="50vw"'),
                 substr_count($html, needle: 'media="(min-width: 2000px)"'),
+            ],
+        );
+    }
+
+    /**
+     * @throws UnknownSizeSetException
+     */
+    #[Test]
+    public function addsNoAlternateWhenTheFieldIsEmpty(): void
+    {
+        $asset = $this->stubAsset([
+            'layoutFields' => [self::ALTERNATE_FIELD => 'mobileAltImage'],
+            'fieldValues'  => ['mobileAltImage' => new ElementCollection()],
+        ]);
+
+        static::assertStringNotContainsString(
+            'media=',
+            $this->picturesWithAlternate()->picture($asset, sizeSet: 'card'),
+        );
+    }
+
+    /**
+     * @throws UnknownSizeSetException
+     */
+    #[Test]
+    public function addsTheSizeSetsAlternateImage(): void
+    {
+        $html = $this->picturesWithAlternate()->picture($this->withAlternate(), sizeSet: 'card');
+
+        static::assertSame(
+            [2, 2],
+            [
+                substr_count($html, needle: 'media="(max-width: 430px)" type="image/'),
+                substr_count($html, needle: 'srcset="https://www.example.test/asset/variant/' . self::ART_UID),
             ],
         );
     }
@@ -262,6 +308,19 @@ final class AssetPicturesTest extends TestCase
             'alt="Harbour at dawn"',
             $this->productionPictures()->picture($this->stubAsset(), sizeSet: 'hero'),
         );
+    }
+
+    /**
+     * @throws UnknownSizeSetException
+     */
+    #[Test]
+    public function letsTemplateSourcesReplaceTheAlternate(): void
+    {
+        $html = $this->picturesWithAlternate()->picture($this->withAlternate(), sizeSet: 'card', options: [
+            'sources' => [],
+        ]);
+
+        static::assertStringNotContainsString('media=', $html);
     }
 
     /**
@@ -411,8 +470,12 @@ final class AssetPicturesTest extends TestCase
     /**
      * @param array<string, mixed> $config
      */
-    private function build(array $config, bool $devMode, Loading $loading = Loading::Lazy): AssetPictures
-    {
+    private function build(
+        array $config,
+        bool $devMode,
+        Loading $loading = Loading::Lazy,
+        AlternateImages $alternates = new AlternateImages(),
+    ): AssetPictures {
         $settings = new Settings(
             $config
                 + [
@@ -435,6 +498,7 @@ final class AssetPicturesTest extends TestCase
                 $this->warnings[] = $message;
             },
             $loading,
+            $alternates,
         );
     }
 
@@ -446,6 +510,17 @@ final class AssetPicturesTest extends TestCase
         return $this->build($config, devMode: true, loading: $loading);
     }
 
+    /**
+     * Pictures whose "card" size set shows the asset in the alternate field
+     * on phones, in the "square" size set.
+     */
+    private function picturesWithAlternate(): AssetPictures
+    {
+        return $this->build([], devMode: true, alternates: new AlternateImages([
+            'card' => new AlternateImage(self::ALTERNATE_FIELD, '(max-width: 430px)', 'square'),
+        ]));
+    }
+
     private function productionPictures(): AssetPictures
     {
         return $this->build([], devMode: false);
@@ -454,5 +529,13 @@ final class AssetPicturesTest extends TestCase
     private function unconfigured(bool $devMode): AssetPictures
     {
         return new AssetPictures(null, $devMode, static function (string $_message): void {});
+    }
+
+    private function withAlternate(): Asset
+    {
+        return $this->stubAsset([
+            'layoutFields' => [self::ALTERNATE_FIELD => 'mobileAltImage'],
+            'fieldValues'  => ['mobileAltImage' => new ElementCollection([$this->stubAsset(['uid' => self::ART_UID])])],
+        ]);
     }
 }

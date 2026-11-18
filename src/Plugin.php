@@ -19,12 +19,15 @@ use parallelogram\images\craft\AssetPictures;
 use parallelogram\images\craft\ConfiguredVariants;
 use parallelogram\images\craft\DeliveryFactory;
 use parallelogram\images\craft\LiveCraftEnvironment;
+use parallelogram\images\craft\PlaceholderEvents;
 use parallelogram\images\craft\SecretProvisioner;
 use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\models\Settings;
 use parallelogram\images\models\SettingsView;
 use parallelogram\images\picture\Loading;
+use parallelogram\images\sizing\AlternateImages;
 use parallelogram\images\sizing\Format;
+use parallelogram\images\sizing\InvalidSizeSetException;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -73,6 +76,18 @@ final class Plugin extends BasePlugin
         $event->rules['<variantPath:' . preg_quote($prefix, delimiter: '#') . '/.+>'] = 'p-images/variants/serve';
     }
 
+    /**
+     * The size sets' alternate images, or none when they can't be read.
+     */
+    private static function alternates(Settings $settings): AlternateImages
+    {
+        try {
+            return $settings->alternateImages();
+        } catch (InvalidSizeSetException) {
+            return new AlternateImages();
+        }
+    }
+
     private static function parsed(string $value): string
     {
         $parsed = App::parseEnv($value);
@@ -105,6 +120,7 @@ final class Plugin extends BasePlugin
         Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_SITE_URL_RULES, [self::class, 'registerVariantRoute']);
 
         AssetMethods::register(fn(): AssetPictures => (self::getInstance() ?? $this)->pictures());
+        PlaceholderEvents::register();
     }
 
     /**
@@ -122,6 +138,7 @@ final class Plugin extends BasePlugin
                 Craft::warning($message, category: 'p-images');
             },
             $settings->lazysrcByDefault ? Loading::Lazysrc : Loading::Lazy,
+            self::alternates($settings),
         );
     }
 

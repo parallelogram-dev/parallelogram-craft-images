@@ -13,7 +13,9 @@ use function str_replace;
  * the original when there are no variants.
  *
  * With Lazysrc, sources go in `data-lazysrc-*` attributes for ParallelogramJS
- * to copy across, and a `<noscript>` copy with real ones follows.
+ * to copy across, and a `<noscript>` copy with real ones follows. An asset's
+ * placeholder colour fills the image's box until it loads; a `style` given in
+ * the template's attributes replaces it.
  *
  * @internal
  */
@@ -72,6 +74,7 @@ final class PictureMarkup
             'sizes'  => $sizes,
             'width'  => $picture->size->width,
             'height' => $picture->size->height,
+            'style'  => null === $picture->colour ? null : "background-color:{$picture->colour}",
         ];
 
         if (Loading::Lazysrc !== $options->loading) {
@@ -85,6 +88,7 @@ final class PictureMarkup
             'data-lazysrc-sizes'  => $real['sizes'],
             'width'               => $real['width'],
             'height'              => $real['height'],
+            'style'               => $real['style'],
         ];
 
         return (

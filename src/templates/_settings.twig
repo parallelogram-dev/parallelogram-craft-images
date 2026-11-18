@@ -35,6 +35,26 @@
         allowDelete: true,
         errors: settings.getErrors('sizeSets')
     }) }}
+
+    <input type="hidden" name="alternateRows[__submitted]" value="1">
+
+    {{ forms.editableTableField({
+        label: 'Alternate images'|t('p-images'),
+        instructions: 'An art-directed alternative for a size set, such as a square crop for phones. When an image has another image in the chosen Assets field (on the volume’s field layout), `asset.picture()` shows that one while the media query matches, in the alternate size set if given, otherwise the same one. A template’s own `sources` option replaces it.'|t('p-images'),
+        id: 'alternateRows',
+        name: 'alternateRows',
+        cols: {
+            sizeSet: { type: 'singleline', heading: 'Size set'|t('p-images'), width: '15%', placeholder: 'wide' },
+            field: { type: 'select', heading: 'Assets field'|t('p-images'), options: [{ label: 'Choose a field…'|t('p-images'), value: '' }] | merge(assetFields | map(field => { label: field.name ~ ' (' ~ field.handle ~ ')', value: field.uid })) },
+            media: { type: 'singleline', heading: 'Media query'|t('p-images'), placeholder: '(max-width: 430px)' },
+            alternateSizeSet: { type: 'singleline', heading: 'Alternate size set'|t('p-images'), width: '15%', placeholder: 'square' }
+        },
+        rows: view.alternateRows(),
+        addRowLabel: 'Add an alternate image'|t('p-images'),
+        allowAdd: true,
+        allowDelete: true,
+        errors: settings.getErrors('alternates')
+    }) }}
 </div>
 
 <div class="pi-pane hidden" data-pane="assignments">

@@ -11,9 +11,12 @@ use parallelogram\images\picture\PictureSources;
 use parallelogram\images\picture\PictureSourcesBuilder;
 use parallelogram\images\picture\RemoteVariantLinks;
 use parallelogram\images\picture\VariantLinksInterface;
+use parallelogram\images\sizing\AlternateImages;
 use parallelogram\images\sizing\UnknownSizeSetException;
 use parallelogram\images\variants\InvalidVariantException;
 use parallelogram\images\variants\SourceImage;
+
+use function array_key_exists;
 
 /**
  * Works out an asset's sources in a size set, linking to the variant
@@ -25,11 +28,13 @@ final readonly class PictureSourcesFinder
 {
     public function __construct(
         private ConfiguredVariants $variants,
+        private AlternateImages $alternates = new AlternateImages(),
     ) {}
 
     /**
-     * The art-directed alternatives the `sources` option asks for, skipping
-     * any whose asset isn't resized.
+     * The art-directed alternatives the `sources` option asks for, or the
+     * size set's alternate image when the option is left out, skipping any
+     * whose asset isn't resized.
      *
      * @param array<array-key, mixed> $options
      *
@@ -41,7 +46,11 @@ final readonly class PictureSourcesFinder
     {
         $directions = [];
 
-        foreach (ArtDirectionOption::listFrom($options) as $option) {
+        $chosen = array_key_exists('sources', $options)
+            ? ArtDirectionOption::listFrom($options)
+            : $this->alternateFor($asset, $sizeSet);
+
+        foreach ($chosen as $option) {
             $sources = $this->find($option->asset ?? $asset, $option->sizeSet ?? $sizeSet);
 
             if (null !== $sources) {
@@ -72,7 +81,23 @@ final readonly class PictureSourcesFinder
             $set,
             $this->variants->planner->filesFor($source, $set),
             $this->links($asset, $source),
+            PlaceholderStore::colourOf($asset),
         );
+    }
+
+    /**
+     * @return list<ArtDirectionOption>
+     */
+    private function alternateFor(Asset $asset, string $sizeSet): array
+    {
+        $alternate = $this->alternates->for($sizeSet);
+        $related   = null === $alternate ? null : RelatedAsset::in($asset, $alternate->fieldUid);
+
+        if (null === $alternate || null === $related) {
+            return [];
+        }
+
+        return [new ArtDirectionOption($alternate->media, $related, $alternate->sizeSet)];
     }
 
     /**

@@ -51,6 +51,17 @@ final class AssetMethodsTest extends TestCase
      * @throws Throwable
      */
     #[Test]
+    public function ignoresAlternateImagesThatCantBeRead(): void
+    {
+        $this->configureVariants(['alternates' => ['card' => 'not an alternate']]);
+
+        static::assertStringStartsWith('<picture>', $this->render("{{ asset.picture('card') }}"));
+    }
+
+    /**
+     * @throws Throwable
+     */
+    #[Test]
     public function keepsRenderingWithoutAPluginInstance(): void
     {
         $this->configureVariants();

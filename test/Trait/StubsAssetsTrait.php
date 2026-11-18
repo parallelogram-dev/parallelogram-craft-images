@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace parallelogram\images\test\Trait;
 
 use craft\elements\Asset;
+use craft\errors\InvalidFieldException;
+use craft\fields\Assets;
+use craft\models\FieldLayout;
 use craft\models\Volume;
 use DateTime;
 use parallelogram\images\test\TestAsset\Factory\SourceImageFactory;
 use PHPUnit\Framework\TestCase;
 use yii\base\InvalidConfigException;
 
+use function array_key_exists;
 use function pathinfo;
 
 use const PATHINFO_EXTENSION;
@@ -26,18 +30,24 @@ use const PATHINFO_EXTENSION;
 trait StubsAssetsTrait
 {
     /**
-     * @param array{uid?: string, filename?: string, width?: int, height?: int, alt?: string|null, url?: string|null, volumeUid?: string|null} $values
+     * `layoutFields` maps field UIDs to their handles in the asset's field
+     * layout, and `fieldValues` maps handles to values; reading any other
+     * handle throws, as Craft does.
+     *
+     * @param array{uid?: string, filename?: string, width?: int, height?: int, alt?: string|null, url?: string|null, volumeUid?: string|null, layoutFields?: array<string, string|null>, fieldValues?: array<string, mixed>} $values
      */
     protected function stubAsset(array $values = []): Asset
     {
         $values += [
-            'uid'       => SourceImageFactory::UID,
-            'filename'  => 'harbour.jpg',
-            'width'     => 2000,
-            'height'    => 1500,
-            'alt'       => 'Harbour at dawn',
-            'url'       => '/uploads/harbour.jpg',
-            'volumeUid' => 'volume-1',
+            'uid'          => SourceImageFactory::UID,
+            'filename'     => 'harbour.jpg',
+            'width'        => 2000,
+            'height'       => 1500,
+            'alt'          => 'Harbour at dawn',
+            'url'          => '/uploads/harbour.jpg',
+            'volumeUid'    => 'volume-1',
+            'layoutFields' => [],
+            'fieldValues'  => [],
         ];
 
         $asset               = $this->createStub(Asset::class);
@@ -77,6 +87,42 @@ trait StubsAssetsTrait
                 ),
             );
 
+        $fieldValues = $values['fieldValues'];
+        $asset->method('getFieldLayout')->willReturn($this->stubLayout($values['layoutFields']));
+        $asset->method('getFieldValue')
+            ->willReturnCallback(
+                /**
+                 * @throws InvalidFieldException
+                 */
+                static fn(string $handle): mixed => array_key_exists($handle, $fieldValues)
+                    ? $fieldValues[$handle]
+                    : throw new InvalidFieldException($handle),
+            );
+
         return $asset;
+    }
+
+    /**
+     * @param array<string, string|null> $fields Handles keyed by field UID.
+     */
+    private function stubLayout(array $fields): ?FieldLayout
+    {
+        if ([] === $fields) {
+            return null;
+        }
+
+        $custom = [];
+
+        foreach ($fields as $uid => $handle) {
+            $field         = $this->createStub(Assets::class);
+            $field->uid    = $uid;
+            $field->handle = $handle;
+            $custom[]      = $field;
+        }
+
+        $layout = $this->createStub(FieldLayout::class);
+        $layout->method('getCustomFields')->willReturn($custom);
+
+        return $layout;
     }
 }

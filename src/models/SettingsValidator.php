@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace parallelogram\images\models;
 
+use parallelogram\images\config\AlternateConfig;
 use parallelogram\images\config\AssignmentConfig;
 use parallelogram\images\config\SizeSetConfig;
 use parallelogram\images\config\SizeSetTable;
@@ -47,6 +48,12 @@ final class SettingsValidator
             $errors['sizeSets'] = $sizeSetErrors;
         }
 
+        $alternateErrors = self::alternateErrors($settings);
+
+        if ([] !== $alternateErrors) {
+            $errors['alternates'] = $alternateErrors;
+        }
+
         $backendErrors = BackendChecks::errors($settings->backends);
 
         if ([] !== $backendErrors) {
@@ -76,9 +83,28 @@ final class SettingsValidator
         }
 
         $settings->sizeSets         = $sizeSets;
+        $settings->alternates       = AlternateConfig::toArray($settings->alternateImages());
         $settings->fieldAssignments = AssignmentConfig::toArray(
             AssignmentConfig::fromArray($settings->fieldAssignments)->prunedTo($catalogue),
         );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function alternateErrors(Settings $settings): array
+    {
+        try {
+            $alternates = $settings->alternateImages();
+        } catch (InvalidSizeSetException $exception) {
+            return [$exception->getMessage()];
+        }
+
+        try {
+            return $alternates->problemsWith($settings->catalogue());
+        } catch (InvalidSizeSetException) {
+            return [];
+        }
     }
 
     /**

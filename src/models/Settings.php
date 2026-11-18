@@ -6,18 +6,17 @@ namespace parallelogram\images\models;
 
 use craft\base\Model;
 use Override;
+use parallelogram\images\config\AlternateConfig;
 use parallelogram\images\config\AssignmentConfig;
 use parallelogram\images\config\BackendConfig;
-use parallelogram\images\config\ConfigValues;
 use parallelogram\images\config\SizeSetConfig;
-use parallelogram\images\config\SizeSetRows;
+use parallelogram\images\sizing\AlternateImages;
 use parallelogram\images\sizing\FieldAssignments;
 use parallelogram\images\sizing\Format;
 use parallelogram\images\sizing\InvalidSizeSetException;
 use parallelogram\images\sizing\QualityTable;
 use parallelogram\images\sizing\SizeSetCatalogue;
 
-use function array_key_exists;
 use function array_map;
 
 /**
@@ -33,6 +32,21 @@ use function array_map;
  */
 final class Settings extends Model
 {
+    /**
+     * Each size set's alternate image, keyed by size set handle. See
+     * {@see AlternateConfig} for the shape.
+     *
+     * @var array<array-key, mixed>
+     */
+    public array $alternates = [];
+
+    /**
+     * Posted rows of the CP's alternate image table, transient.
+     *
+     * @var array<array-key, mixed>
+     */
+    public array $alternateRows = [];
+
     public bool $autoOrient = true;
 
     /**
@@ -112,6 +126,16 @@ final class Settings extends Model
     public string $variantPrefix = '';
 
     /**
+     * Each size set's alternate image.
+     *
+     * @throws InvalidSizeSetException When a stored alternate can't be used.
+     */
+    public function alternateImages(): AlternateImages
+    {
+        return AlternateConfig::fromArray($this->alternates);
+    }
+
+    /**
      * The field assignments, without any size set that no longer exists.
      *
      * @throws InvalidSizeSetException When the stored assignments or size sets are invalid.
@@ -129,15 +153,7 @@ final class Settings extends Model
     #[Override]
     public function beforeValidate(): bool
     {
-        if ([] !== $this->sizeSetRows) {
-            $this->sizeSets = SizeSetRows::toConfigs($this->sizeSetRows, $this->sizeSets);
-        }
-
-        $this->formatQuality = ConfigValues::postedIntegers($this->formatQuality);
-
-        if (array_key_exists('__submitted', $this->fieldAssignmentInput)) {
-            $this->fieldAssignments = AssignmentConfig::toArray(AssignmentConfig::fromInput($this->fieldAssignmentInput));
-        }
+        PostedInput::apply($this);
 
         return parent::beforeValidate();
     }
@@ -190,7 +206,7 @@ final class Settings extends Model
     public function fields(): array
     {
         $fields = parent::fields();
-        unset($fields['sizeSetRows'], $fields['fieldAssignmentInput']);
+        unset($fields['sizeSetRows'], $fields['fieldAssignmentInput'], $fields['alternateRows']);
 
         return $fields;
     }
@@ -212,6 +228,8 @@ final class Settings extends Model
         return [
             [
                 [
+                    'alternateRows',
+                    'alternates',
                     'autoOrient',
                     'backends',
                     'convertToSrgb',

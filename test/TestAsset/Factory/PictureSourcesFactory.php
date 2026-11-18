@@ -17,8 +17,11 @@ use parallelogram\images\variants\Dimensions;
  */
 final class PictureSourcesFactory
 {
-    public static function make(string $sizeSet = 'card', string $sizes = '100vw'): PictureSources
-    {
+    public static function make(
+        string $sizeSet = 'card',
+        string $sizes = '100vw',
+        ?string $colour = null,
+    ): PictureSources {
         $jpg = new FormatSource(
             Format::Jpg,
             "/{$sizeSet}-480.jpg 480w, /{$sizeSet}-960.jpg 960w",
@@ -35,9 +38,9 @@ final class PictureSourcesFactory
                 ),
                 $jpg,
             ],
-            $jpg,
             $sizes,
             new Dimensions(960, 720),
+            $colour,
         );
     }
 }

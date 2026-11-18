@@ -72,6 +72,20 @@ final class PictureSourcesBuilderTest extends TestCase
     }
 
     #[Test]
+    public function carriesTheAssetsPlaceholderColour(): void
+    {
+        $sources = PictureSourcesBuilder::build(
+            SourceImageFactory::make(),
+            SizeSetFactory::make(formats: [Format::Jpg]),
+            [VariantFileFactory::make(480)],
+            new CdnLinks(),
+            colour: '#7a8b6c',
+        );
+
+        static::assertSame('#7a8b6c', $sources->colour);
+    }
+
+    #[Test]
     public function describesFittedImagesByTheWidthTheyReallyHave(): void
     {
         $sources = self::build(
@@ -129,11 +143,6 @@ final class PictureSourcesBuilderTest extends TestCase
                         'https://cdn.test/960.jpg',
                     ),
                 ],
-                new FormatSource(
-                    Format::Jpg,
-                    'https://cdn.test/480.jpg 480w, https://cdn.test/960.jpg 960w',
-                    'https://cdn.test/960.jpg',
-                ),
                 '100vw',
                 new Dimensions(960, 720),
             ),

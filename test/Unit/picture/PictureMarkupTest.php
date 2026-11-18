@@ -21,6 +21,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
+use function str_contains;
 use function substr_count;
 
 /**
@@ -72,6 +73,17 @@ final class PictureMarkupTest extends TestCase
     }
 
     #[Test]
+    public function fillsTheImageWithItsPlaceholderColourUntilItLoads(): void
+    {
+        $html = PictureMarkup::picture(
+            PictureSourcesFactory::make(colour: '#7a8b6c'),
+            new PictureOptions('Harbour', loading: Loading::Lazysrc),
+        );
+
+        static::assertSame(2, substr_count($html, needle: ' style="background-color:#7a8b6c"'));
+    }
+
+    #[Test]
     public function handsSourcesToLazysrcWithANoscriptCopy(): void
     {
         $html = PictureMarkup::picture(
@@ -86,6 +98,20 @@ final class PictureMarkupTest extends TestCase
                 . self::IMG
                 . ' loading="lazy" decoding="async"></noscript>',
             $html,
+        );
+    }
+
+    #[Test]
+    public function letsATemplatesStyleReplaceThePlaceholderColour(): void
+    {
+        $html = PictureMarkup::picture(
+            PictureSourcesFactory::make(colour: '#7a8b6c'),
+            new PictureOptions('Harbour', attributes: ['style' => 'object-fit:cover']),
+        );
+
+        static::assertSame(
+            [false, true],
+            [str_contains($html, 'background-color'), str_contains($html, 'style="object-fit:cover"')],
         );
     }
 

@@ -8,6 +8,8 @@ use parallelogram\images\backends\BackendChoice;
 use parallelogram\images\backends\BackendKind;
 use parallelogram\images\backends\InvalidBackendException;
 use parallelogram\images\backends\RemoteSettings;
+use parallelogram\images\config\AlternateConfig;
+use parallelogram\images\config\AlternateRows;
 use parallelogram\images\config\AssignmentConfig;
 use parallelogram\images\config\BackendConfig;
 use parallelogram\images\config\ConfigValues;
@@ -17,10 +19,13 @@ use parallelogram\images\config\SizeSetConfig;
 use parallelogram\images\config\SizeSetRows;
 use parallelogram\images\config\SizeSetTable;
 use parallelogram\images\models\BackendChecks;
+use parallelogram\images\models\PostedInput;
 use parallelogram\images\models\Settings;
 use parallelogram\images\models\SettingsValidator;
 use parallelogram\images\models\SingleValueChecks;
 use parallelogram\images\models\VariantPrefixCheck;
+use parallelogram\images\sizing\AlternateImage;
+use parallelogram\images\sizing\AlternateImages;
 use parallelogram\images\sizing\AspectRatio;
 use parallelogram\images\sizing\Encoding;
 use parallelogram\images\sizing\FieldAssignment;
@@ -51,6 +56,11 @@ use function array_keys;
 #[CoversClass(SingleValueChecks::class)]
 #[CoversClass(VariantPrefixCheck::class)]
 #[CoversClass(BackendChecks::class)]
+#[CoversClass(PostedInput::class)]
+#[UsesClass(AlternateConfig::class)]
+#[UsesClass(AlternateImage::class)]
+#[UsesClass(AlternateImages::class)]
+#[UsesClass(AlternateRows::class)]
 #[UsesClass(AspectRatio::class)]
 #[UsesClass(AssignmentConfig::class)]
 #[UsesClass(BackendChoice::class)]
@@ -125,12 +135,12 @@ final class SettingsTest extends TestCase
                 'can\'t be used as a variant prefix',
             ],
             'unknown backend'    => [['backends' => ['default' => 'sharp']], 'backends', '“sharp” isn\'t a backend.'],
-            'imgproxy without url'    => [
+            'imgproxy without url'      => [
                 ['backends' => ['default' => 'imgproxy', 'imgproxyKey' => '$K', 'imgproxySalt' => '$S']],
                 'backends',
                 'Enter the address of your imgproxy server.',
             ],
-            'literal imgproxy key'    => [
+            'literal imgproxy key'      => [
                 ['backends' => [
                     'default'      => 'imgproxy',
                     'imgproxyUrl'  => 'https://img.test',
@@ -140,7 +150,7 @@ final class SettingsTest extends TestCase
                 'backends',
                 'as environment variables',
             ],
-            'literal imgproxy salt'   => [
+            'literal imgproxy salt'     => [
                 [
                     'backends' => [
                         'volumes'      => ['v' => 'imgproxy'],
@@ -152,7 +162,17 @@ final class SettingsTest extends TestCase
                 'backends',
                 'as environment variables',
             ],
-            'cloudflare without zone' => [
+            'alternate for no size set' => [
+                ['alternates' => ['wide' => ['field' => 'field-1', 'media' => 'print']]],
+                'alternates',
+                'There\'s an alternate image for “wide”',
+            ],
+            'alternate without field'   => [
+                ['alternates' => ['wide' => ['media' => 'print']]],
+                'alternates',
+                'Choose the field',
+            ],
+            'cloudflare without zone'   => [
                 ['backends' => ['default' => 'cloudflare']],
                 'backends',
                 'Enter the address of the Cloudflare zone',
@@ -217,11 +237,23 @@ final class SettingsTest extends TestCase
     {
         $fields = (new Settings())->fields();
 
-        static::assertSame([false, false, true], [
+        static::assertSame([false, false, false, true], [
             array_key_exists('sizeSetRows', $fields),
             array_key_exists('fieldAssignmentInput', $fields),
+            array_key_exists('alternateRows', $fields),
             array_key_exists('sizeSets', $fields),
         ]);
+    }
+
+    #[Test]
+    public function leavesAlternatesUncheckedWhileSizeSetsAreInvalid(): void
+    {
+        $settings = new Settings([
+            'sizeSets'   => ['wide' => ['widths' => []]],
+            'alternates' => ['other' => ['field' => 'field-1', 'media' => 'print']],
+        ]);
+
+        static::assertSame([false, null], [$settings->validate(), $settings->getFirstError('alternates')]);
     }
 
     #[Test]
@@ -251,6 +283,32 @@ final class SettingsTest extends TestCase
                 [['fieldUid' => 'field-1', 'layoutUid' => null, 'sizeSets' => ['card']]],
             ],
             [$settings->sizeSets, $settings->fieldAssignments],
+        );
+    }
+
+    #[Test]
+    public function readsAndNormalisesPostedAlternateRows(): void
+    {
+        $settings = new Settings([
+            'sizeSets'      => [
+                'wide'   => ['widths' => [960], 'sizes' => '100vw'],
+                'square' => ['widths' => [480], 'sizes' => '100vw', 'ratio' => '1:1'],
+            ],
+            'alternateRows' => [
+                '__submitted' => '1',
+                [
+                    'sizeSet'          => 'wide',
+                    'field'            => 'field-1',
+                    'media'            => '(max-width: 430px)',
+                    'alternateSizeSet' => 'square',
+                ],
+            ],
+        ]);
+
+        static::assertTrue($settings->validate());
+        static::assertSame(
+            ['wide' => ['field' => 'field-1', 'media' => '(max-width: 430px)', 'sizeSet' => 'square']],
+            $settings->alternates,
         );
     }
 

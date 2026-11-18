@@ -23,6 +23,7 @@ final class PictureSourcesBuilder
 {
     /**
      * @param list<VariantFile> $files The planner's files for this image and size set, ascending by width.
+     * @param string|null $colour The asset's placeholder colour, if it has one.
      *
      * @throws InvalidVariantException When there are no files in the fallback format, or a link can't be made.
      */
@@ -31,6 +32,7 @@ final class PictureSourcesBuilder
         SizeSet $sizeSet,
         array $files,
         VariantLinksInterface $links,
+        ?string $colour = null,
     ): PictureSources {
         $byFormat = [];
 
@@ -57,11 +59,14 @@ final class PictureSourcesBuilder
             }
 
             $formatSource = new FormatSource($format, implode(', ', $candidates), $widest[0]);
-            $sources[]    = $formatSource;
 
             if ($format === $sizeSet->encoding->fallback) {
                 $fallback = [$formatSource, $widest[1]];
+
+                continue;
             }
+
+            $sources[] = $formatSource;
         }
 
         if (null === $fallback) {
@@ -70,6 +75,12 @@ final class PictureSourcesBuilder
             );
         }
 
-        return new PictureSources($sizeSet->handle, $sources, $fallback[0], $sizeSet->sizes, $fallback[1]);
+        return new PictureSources(
+            $sizeSet->handle,
+            [...$sources, $fallback[0]],
+            $sizeSet->sizes,
+            $fallback[1],
+            $colour,
+        );
     }
 }
