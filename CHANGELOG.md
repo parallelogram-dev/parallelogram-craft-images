@@ -9,6 +9,7 @@
 - Variant paths: `{prefix}/{assetUid}/{hash}/{filename}.{ext}` on a chosen Craft filesystem. The filesystem and prefix have no defaults; nothing is generated or served until both are set.
 - Variant hashes (HMAC with `P_IMAGES_SECRET`) covering the source file and focal point, the box, format, quality and site processing. Size sets asking for the same file share it, and only defined variants can be requested.
 - Request handling for missing variant files: only variants a size set defines for the image as it is now are made. Each is generated once under a lock, saved, then sent (files on the site's domain) or redirected to (a bucket or CDN). Generation or storage failures answer 503 with Retry-After; files and redirects are cacheable for a year, not-found for five minutes.
+- Imagick generator: auto-orient, sRGB conversion, crop around the focal point, resize (Lanczos), sharpen, letterbox padding (white for JPG, transparent otherwise), then AVIF, WebP, JPG (progressive) or PNG. Crop and resize geometry is worked out separately so every backend behaves the same.
 - `P_IMAGES_SECRET` is written to `.env` on install if it isn't already set.
 - `PrototypeConverter`, which turns the prototype's matrices and field-handle assignments into size sets and UID-keyed assignments, with notes on anything that couldn't carry over.
 
