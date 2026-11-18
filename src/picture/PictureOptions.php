@@ -22,7 +22,9 @@ use function implode;
  * - `attributes`: any other `<img>` attributes. True writes the name alone;
  *   false or null leaves it out.
  * - `pictureAttributes`: the same, for the `<picture>`.
- * - `sources`: art-directed alternatives, read by the plugin itself.
+ * - `sources`: art-directed alternatives, read by the plugin itself. An entry
+ *   with `blank: true` shows nothing (a transparent pixel) while its media
+ *   query matches.
  *
  * @api
  */

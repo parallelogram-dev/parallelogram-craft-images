@@ -21,6 +21,8 @@ use function str_replace;
  */
 final class PictureMarkup
 {
+    private const string BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+
     /**
      * The original file as a plain `<img>`, preceded by an HTML comment
      * saying why when there is one to give. When the template gave the
@@ -54,6 +56,12 @@ final class PictureMarkup
         $html   = '<picture' . HtmlAttributes::render($options->picture->all()) . '>';
 
         foreach ($art as $direction) {
+            if (null === $direction->picture) {
+                $html .= self::blankSource($direction->media, $prefix);
+
+                continue;
+            }
+
             foreach ($direction->picture->sources as $source) {
                 $html .= self::source(
                     $source,
@@ -103,6 +111,11 @@ final class PictureMarkup
                 . self::image($real, $options, Loading::Lazy)
                 . '</noscript>'
         );
+    }
+
+    private static function blankSource(string $media, string $prefix): string
+    {
+        return '<source' . HtmlAttributes::render(['media' => $media, "{$prefix}srcset" => self::BLANK_PIXEL]) . '>';
     }
 
     /**

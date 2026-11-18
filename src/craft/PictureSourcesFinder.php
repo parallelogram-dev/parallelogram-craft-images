@@ -51,6 +51,12 @@ final readonly class PictureSourcesFinder
             : $this->alternateFor($asset, $sizeSet);
 
         foreach ($chosen as $option) {
+            if ($option->blank) {
+                $directions[] = new ArtDirection($option->media);
+
+                continue;
+            }
+
             $sources = $this->find($option->asset ?? $asset, $option->sizeSet ?? $sizeSet);
 
             if (null !== $sources) {

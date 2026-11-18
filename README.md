@@ -31,7 +31,7 @@ Responsive image variants for Craft CMS. You define named size sets (an aspect r
      width="{{ variants.size.width }}" height="{{ variants.size.height }}" alt="">
 ```
 
-Options for `asset.picture()`: `alt` (defaults to the asset's alt text), `class` and `attributes` (for the `<img>`), `pictureClass` and `pictureAttributes` (for the `<picture>` around it), `sizes` (defaults to the size set's), `lazysrc`, `priority`, `attributes` (any other `<img>` attributes) and `sources` (`{media, asset, sizeSet}`, where `asset` and `sizeSet` default to the picture's own). The "Use Lazysrc by default" setting makes `lazysrc: true` the default.
+Options for `asset.picture()`: `alt` (defaults to the asset's alt text), `class` and `attributes` (for the `<img>`), `pictureClass` and `pictureAttributes` (for the `<picture>` around it), `sizes` (defaults to the size set's), `lazysrc`, `priority`, `attributes` (any other `<img>` attributes) and `sources` (`{media, asset, sizeSet}`, where `asset` and `sizeSet` default to the picture's own, or `{media, blank: true}` to show nothing while the media query matches). The "Use Lazysrc by default" setting makes `lazysrc: true` the default.
 
 A size set can also have an alternate image (Settings → Size sets → Alternate images): an Assets field on the volume's layout, a media query and optionally another size set. When an asset has an image in that field, `asset.picture()` shows it while the media query matches, unless the template passes its own `sources`.
 

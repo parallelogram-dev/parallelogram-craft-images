@@ -30,12 +30,13 @@ use function is_array;
  */
 final readonly class ArtDirectionOption
 {
-    private const array KNOWN = ['asset', 'media', 'sizeSet'];
+    private const array KNOWN = ['asset', 'blank', 'media', 'sizeSet'];
 
     public function __construct(
         public string $media,
         public ?Asset $asset = null,
         public ?string $sizeSet = null,
+        public bool $blank = false,
     ) {}
 
     /**
@@ -54,7 +55,9 @@ final readonly class ArtDirectionOption
         }
 
         if (! is_array($options['sources'])) {
-            throw new InvalidPictureException('The sources option must be a list of {media, asset, sizeSet} hashes.');
+            throw new InvalidPictureException(
+                'The sources option must be a list of {media, asset, sizeSet, blank} hashes.',
+            );
         }
 
         $sources = $options['sources'];
@@ -93,14 +96,18 @@ final readonly class ArtDirectionOption
     private static function from(mixed $entry): self
     {
         if (! is_array($entry)) {
-            throw new InvalidPictureException('Each art-directed source must be a {media, asset, sizeSet} hash.');
+            throw new InvalidPictureException(
+                'Each art-directed source must be a {media, asset, sizeSet, blank} hash.',
+            );
         }
 
         $unknown = array_diff(array_keys($entry), self::KNOWN);
 
         if ([] !== $unknown) {
             throw new InvalidPictureException(
-                'Unknown art-directed source option: ' . implode(', ', $unknown) . '. Use media, asset or sizeSet.',
+                'Unknown art-directed source option: '
+                    . implode(', ', $unknown)
+                    . '. Use media, asset, sizeSet or blank.',
             );
         }
 
@@ -112,6 +119,16 @@ final readonly class ArtDirectionOption
             );
         }
 
-        return new self($media, self::asset($entry), OptionReader::text($entry, key: 'sizeSet'));
+        $blank = OptionReader::flag($entry, key: 'blank') ?? false;
+        $asset = self::asset($entry);
+        $set   = OptionReader::text($entry, key: 'sizeSet');
+
+        if ($blank && (null !== $asset || null !== $set)) {
+            throw new InvalidPictureException(
+                'A blank art-directed source shows no image, so it takes no asset or sizeSet.',
+            );
+        }
+
+        return new self($media, $asset, $set, $blank);
     }
 }

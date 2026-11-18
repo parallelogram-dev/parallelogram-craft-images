@@ -188,6 +188,21 @@ final class PictureMarkupTest extends TestCase
     }
 
     #[Test]
+    public function showsNothingBelowABlankSourcesMediaQuery(): void
+    {
+        $html = PictureMarkup::picture(
+            PictureSourcesFactory::make(),
+            new PictureOptions('Harbour', loading: Loading::Lazysrc),
+            new ArtDirection('(max-width: 599px)'),
+        );
+
+        static::assertStringStartsWith(
+            '<picture><source media="(max-width: 599px)" data-lazysrc-srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="><source type="image/avif"',
+            $html,
+        );
+    }
+
+    #[Test]
     public function usesTheSizesOptionOverTheSizeSets(): void
     {
         $html = PictureMarkup::picture(PictureSourcesFactory::make(), new PictureOptions('Harbour', sizes: '50vw'));
@@ -214,6 +229,21 @@ final class PictureMarkupTest extends TestCase
                 . '<img '
                 . self::IMG
                 . ' class="hero" loading="lazy" decoding="async" id="top" hidden data-n="2.5"></picture>',
+            $html,
+        );
+    }
+
+    #[Test]
+    public function writesBlankSourcesWithRealAttributesWhenNotLazy(): void
+    {
+        $html = PictureMarkup::picture(
+            PictureSourcesFactory::make(),
+            new PictureOptions('Harbour'),
+            new ArtDirection('(max-width: 599px)'),
+        );
+
+        static::assertStringStartsWith(
+            '<picture><source media="(max-width: 599px)" srcset="data:image/gif;base64,',
             $html,
         );
     }

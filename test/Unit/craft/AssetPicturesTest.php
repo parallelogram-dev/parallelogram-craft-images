@@ -157,6 +157,22 @@ final class AssetPicturesTest extends TestCase
      * @throws UnknownSizeSetException
      */
     #[Test]
+    public function addsABlankSourceThatShowsNothingOnSmallScreens(): void
+    {
+        $html = $this->pictures()->picture($this->stubAsset(), sizeSet: 'card', options: [
+            'sources' => [['media' => '(max-width: 599px)', 'blank' => true]],
+        ]);
+
+        static::assertStringContainsString(
+            '<source media="(max-width: 599px)" srcset="data:image/gif;base64,',
+            $html,
+        );
+    }
+
+    /**
+     * @throws UnknownSizeSetException
+     */
+    #[Test]
     public function addsArtDirectedSourcesForOtherAssetsAndSizeSets(): void
     {
         $html = $this->pictures()->picture($this->stubAsset(), sizeSet: 'card', options: [

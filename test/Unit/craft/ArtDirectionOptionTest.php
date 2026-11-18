@@ -34,13 +34,31 @@ final class ArtDirectionOptionTest extends TestCase
             'not a list'       => ['(max-width: 600px)', 'The sources option must be a list'],
             'entry not a hash' => [
                 ['(max-width: 600px)'],
-                'Each art-directed source must be a {media, asset, sizeSet} hash.',
+                'Each art-directed source must be a {media, asset, sizeSet, blank} hash.',
             ],
             'unknown key' => [[['media' => 'x', 'matrix' => 'card']], 'Unknown art-directed source option: matrix.'],
             'no media'    => [[['sizeSet' => 'square']], 'needs a media query'],
             'empty media' => [[['media' => '']], 'needs a media query'],
-            'asset not asset' => [[['media' => 'x', 'asset' => 42]], 'asset must be an asset'],
+            'asset not asset'  => [[['media' => 'x', 'asset' => 42]], 'asset must be an asset'],
+            'blank not a flag' => [[['media' => 'x', 'blank' => 'yes']], 'The blank option must be true or false.'],
+            'blank with a size set' => [
+                [['media' => 'x', 'blank' => true, 'sizeSet' => 'square']],
+                'A blank art-directed source shows no image',
+            ],
+            'blank with an asset'   => [
+                [['media' => 'x', 'blank' => true, 'asset' => 'asset']],
+                'asset must be an asset',
+            ],
         ];
+    }
+
+    #[Test]
+    public function readsBlankSources(): void
+    {
+        static::assertEquals(
+            [new ArtDirectionOption('(max-width: 599px)', blank: true)],
+            ArtDirectionOption::listFrom(['sources' => [['media' => '(max-width: 599px)', 'blank' => true]]]),
+        );
     }
 
     #[Test]
