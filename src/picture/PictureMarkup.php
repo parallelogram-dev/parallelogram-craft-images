@@ -23,7 +23,9 @@ final class PictureMarkup
 {
     /**
      * The original file as a plain `<img>`, preceded by an HTML comment
-     * saying why when there is one to give.
+     * saying why when there is one to give. When the template gave the
+     * `<picture>` a class or attributes the image is still wrapped in one, so
+     * the page's styles keep working.
      */
     public static function original(OriginalImage $image, PictureOptions $options, ?string $note = null): string
     {
@@ -39,14 +41,17 @@ final class PictureMarkup
         $loading = Loading::Priority === $options->loading ? Loading::Priority : Loading::Lazy;
         $sources = ['src' => $image->url, 'width' => $image->width, 'height' => $image->height];
 
-        return $comment . self::image($sources, $options, $loading);
+        $img     = self::image($sources, $options, $loading);
+        $wrapper = HtmlAttributes::render($options->picture->all());
+
+        return $comment . ('' === $wrapper ? $img : "<picture{$wrapper}>{$img}</picture>");
     }
 
     public static function picture(PictureSources $picture, PictureOptions $options, ArtDirection ...$art): string
     {
         $prefix = Loading::Lazysrc === $options->loading ? 'data-lazysrc-' : '';
         $sizes  = $options->sizes ?? $picture->sizes;
-        $html   = '<picture>';
+        $html   = '<picture' . HtmlAttributes::render($options->picture->all()) . '>';
 
         foreach ($art as $direction) {
             foreach ($direction->picture->sources as $source) {
@@ -111,12 +116,12 @@ final class PictureMarkup
                     $sources,
                     [
                         'alt'           => $options->alt,
-                        'class'         => $options->class,
+                        'class'         => $options->image->class,
                         'loading'       => Loading::Lazy === $loading ? 'lazy' : null,
                         'fetchpriority' => Loading::Priority === $loading ? 'high' : null,
                         'decoding'      => 'async',
                     ],
-                    $options->attributes,
+                    $options->image->attributes,
                 ))
                 . '>'
         );

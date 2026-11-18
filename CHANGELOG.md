@@ -17,6 +17,7 @@
 - Backend choice: site-wide (auto: ImageMagick, then GD; or imgproxy or Cloudflare) with per-volume overrides. The imgproxy key and salt must be environment variables.
 - The variant route: `{prefix}/…` requests the web server can't satisfy are answered by the plugin once a filesystem and prefix are chosen. A Delivery tab in the settings covers the filesystem, prefix, backends and service details.
 - `asset.picture('handle', {...})`: a `<picture>` with a `<source>` per modern format and an `<img>` in the fallback format, each `srcset` describing files by the width they really have. Options: `alt`, `class`, `sizes`, `lazysrc` (ParallelogramJS `data-lazysrc-*` markup with a `<noscript>` copy), `priority` (`fetchpriority="high"`, never lazy), `attributes` and art-directed `sources` (`{media, asset, sizeSet}`). Unknown or mistyped options are errors.
+- `pictureClass` and `pictureAttributes` options for the `<picture>` element itself, since many sites style it. A picture that falls back to the original file keeps its `<picture>` wrapper when these are set.
 - `asset.variants('handle')`: the same sources as data, e.g. `asset.variants('card').srcset('avif')`.
 - Alternate images: each size set can name an Assets field on the asset's own layout (found by UID, so overridden handles work), a media query and an optional size set. When the field has an image, `asset.picture()` adds it as an art-directed source; a template's `sources` option replaces it, and `sources: []` turns it off.
 - A Placeholder Colour field type. Added to a volume's field layout, it holds each image's most common colour (similar colours grouped, the largest group averaged), worked out by a queue job whenever an image is uploaded or replaced and stored straight into the asset's content without an element save. `asset.picture()` fills the image's box with it until the image loads (`style="background-color:…"`, which a template's own `style` attribute replaces), and `asset.variants()` has it as `colour`.
@@ -38,6 +39,9 @@
 - Licensed under the Craft Licence.
 - Tooling moved to Mago (format, lint, analyse) and PHPUnit 12, with tests in `test/`.
 - New installs start with no size sets; the prototype's seeded sets were specific to one site.
+
+### Fixed
+- Sites with FFI enabled but without php-vips installed crashed on every variant request with "Class Jcupitt\Vips\Config not found". The libvips check now only touches php-vips when it runs, and falls back to ImageMagick or GD as intended.
 
 ### Removed
 - The prototype's warming services, CP progress tracking with its Stop button and cached coverage report, and asset-save hooks, replaced by the queue-based warming above.

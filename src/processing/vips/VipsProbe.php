@@ -31,12 +31,17 @@ final readonly class VipsProbe
         private Closure $version,
     ) {}
 
+    /**
+     * Every check is a closure that only touches php-vips when it runs, so
+     * building this on a server without php-vips installed is safe.
+     */
     public static function forThisServer(): self
     {
         return new self(
             static fn(): bool => class_exists(Config::class),
             static fn(): bool => extension_loaded('ffi'),
-            Config::version(...),
+            // @mago-expect lint:prefer-first-class-callable
+            static fn(): string => Config::version(),
         );
     }
 

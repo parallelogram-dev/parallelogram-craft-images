@@ -28,6 +28,7 @@ use parallelogram\images\craft\VariantBackends;
 use parallelogram\images\craft\VariantStorage;
 use parallelogram\images\models\Settings;
 use parallelogram\images\picture\ArtDirection;
+use parallelogram\images\picture\ElementAttributes;
 use parallelogram\images\picture\FormatSource;
 use parallelogram\images\picture\HtmlAttributes;
 use parallelogram\images\picture\InvalidPictureException;
@@ -102,6 +103,7 @@ use function substr_count;
 #[UsesClass(FitConfig::class)]
 #[UsesClass(FocalPoint::class)]
 #[UsesClass(Format::class)]
+#[UsesClass(ElementAttributes::class)]
 #[UsesClass(FormatSource::class)]
 #[UsesClass(FsVariantStore::class)]
 #[UsesClass(HtmlAttributes::class)]
@@ -362,7 +364,9 @@ final class AssetPicturesTest extends TestCase
         static::assertSame(
             [
                 '<img src="/uploads/harbour.jpg" width="2000" height="1500" alt="" loading="lazy" decoding="async">',
-                ['Unknown picture option: lazy. Use alt, attributes, class, lazysrc, priority, sizes, sources.'],
+                [
+                    'Unknown picture option: lazy. Use alt, attributes, class, lazysrc, pictureAttributes, pictureClass, priority, sizes, sources.',
+                ],
             ],
             [$html, $this->warnings],
         );

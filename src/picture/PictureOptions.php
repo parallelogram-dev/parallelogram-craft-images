@@ -13,6 +13,7 @@ use function implode;
  *
  * - `alt`: the alternative text, instead of the asset's own.
  * - `class`: classes for the `<img>`.
+ * - `pictureClass`: classes for the `<picture>` around it.
  * - `sizes`: a `sizes` value, instead of the size set's.
  * - `lazysrc`: true to hand the sources to ParallelogramJS's Lazysrc, or
  *   false to opt out when the site makes Lazysrc the default.
@@ -20,23 +21,31 @@ use function implode;
  *   straight away with `fetchpriority="high"`, Lazysrc or not.
  * - `attributes`: any other `<img>` attributes. True writes the name alone;
  *   false or null leaves it out.
+ * - `pictureAttributes`: the same, for the `<picture>`.
  * - `sources`: art-directed alternatives, read by the plugin itself.
  *
  * @api
  */
 final readonly class PictureOptions
 {
-    private const array KNOWN = ['alt', 'attributes', 'class', 'lazysrc', 'priority', 'sizes', 'sources'];
+    private const array KNOWN = [
+        'alt',
+        'attributes',
+        'class',
+        'lazysrc',
+        'pictureAttributes',
+        'pictureClass',
+        'priority',
+        'sizes',
+        'sources',
+    ];
 
-    /**
-     * @param array<string, scalar|null> $attributes
-     */
     public function __construct(
         public string $alt = '',
-        public ?string $class = null,
         public ?string $sizes = null,
         public Loading $loading = Loading::Lazy,
-        public array $attributes = [],
+        public ElementAttributes $image = new ElementAttributes(),
+        public ElementAttributes $picture = new ElementAttributes(),
     ) {}
 
     /**
@@ -56,10 +65,16 @@ final readonly class PictureOptions
 
         return new self(
             OptionReader::text($options, key: 'alt') ?? $defaultAlt,
-            OptionReader::text($options, key: 'class'),
             OptionReader::text($options, key: 'sizes'),
             self::loading($options, $default),
-            OptionReader::attributes($options),
+            new ElementAttributes(
+                OptionReader::text($options, key: 'class'),
+                OptionReader::attributes($options, key: 'attributes'),
+            ),
+            new ElementAttributes(
+                OptionReader::text($options, key: 'pictureClass'),
+                OptionReader::attributes($options, key: 'pictureAttributes'),
+            ),
         );
     }
 

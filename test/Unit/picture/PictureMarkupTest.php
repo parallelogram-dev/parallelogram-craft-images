@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace parallelogram\images\test\Unit\picture;
 
 use parallelogram\images\picture\ArtDirection;
+use parallelogram\images\picture\ElementAttributes;
 use parallelogram\images\picture\FormatSource;
 use parallelogram\images\picture\HtmlAttributes;
 use parallelogram\images\picture\Loading;
@@ -29,6 +30,7 @@ use function substr_count;
  */
 #[CoversClass(PictureMarkup::class)]
 #[CoversClass(HtmlAttributes::class)]
+#[CoversClass(ElementAttributes::class)]
 #[CoversClass(ArtDirection::class)]
 #[CoversClass(OriginalImage::class)]
 #[UsesClass(Dimensions::class)]
@@ -102,11 +104,25 @@ final class PictureMarkupTest extends TestCase
     }
 
     #[Test]
+    public function keepsTheOriginalInsideItsPictureWhenTheTemplateStylesOne(): void
+    {
+        $html = PictureMarkup::original(
+            new OriginalImage('/a.jpg', 800, 600),
+            new PictureOptions('A', picture: new ElementAttributes('frame')),
+        );
+
+        static::assertSame(
+            '<picture class="frame"><img src="/a.jpg" width="800" height="600" alt="A" loading="lazy" decoding="async"></picture>',
+            $html,
+        );
+    }
+
+    #[Test]
     public function letsATemplatesStyleReplaceThePlaceholderColour(): void
     {
         $html = PictureMarkup::picture(
             PictureSourcesFactory::make(colour: '#7a8b6c'),
-            new PictureOptions('Harbour', attributes: ['style' => 'object-fit:cover']),
+            new PictureOptions('Harbour', image: new ElementAttributes(attributes: ['style' => 'object-fit:cover'])),
         );
 
         static::assertSame(
@@ -161,6 +177,17 @@ final class PictureMarkupTest extends TestCase
     }
 
     #[Test]
+    public function putsClassesAndAttributesOnThePictureToo(): void
+    {
+        $html = PictureMarkup::picture(
+            PictureSourcesFactory::make(),
+            new PictureOptions('Harbour', picture: new ElementAttributes('frame', ['data-reveal' => true])),
+        );
+
+        static::assertStringStartsWith('<picture class="frame" data-reveal><source ', $html);
+    }
+
+    #[Test]
     public function usesTheSizesOptionOverTheSizeSets(): void
     {
         $html = PictureMarkup::picture(PictureSourcesFactory::make(), new PictureOptions('Harbour', sizes: '50vw'));
@@ -173,12 +200,12 @@ final class PictureMarkupTest extends TestCase
     {
         $html = PictureMarkup::picture(
             PictureSourcesFactory::make(),
-            new PictureOptions('Harbour', 'hero', attributes: [
+            new PictureOptions('Harbour', image: new ElementAttributes('hero', [
                 'id'     => 'top',
                 'hidden' => true,
                 'title'  => false,
                 'data-n' => 2.5,
-            ]),
+            ])),
         );
 
         static::assertSame(

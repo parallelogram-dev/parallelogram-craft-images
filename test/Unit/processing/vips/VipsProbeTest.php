@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace parallelogram\images\test\Unit\processing\vips;
 
+use Jcupitt\Vips\Config;
 use parallelogram\images\processing\vips\VipsProbe;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+
+use function class_exists;
 
 /**
  * @internal
@@ -31,6 +36,21 @@ final class VipsProbeTest extends TestCase
             'libvips will not load'  => [true, true, null, false],
             'no version reported'    => [true, true, '', false],
         ];
+    }
+
+    /**
+     * Craft sites without php-vips installed (it's only suggested) still
+     * build this probe on every request; resolving the version check eagerly
+     * once crashed them with "Class Jcupitt\Vips\Config not found".
+     */
+    #[PreserveGlobalState(false)]
+    #[RunInSeparateProcess]
+    #[Test]
+    public function canBeBuiltWithoutLoadingPhpVips(): void
+    {
+        VipsProbe::forThisServer();
+
+        static::assertFalse(class_exists(Config::class, autoload: false));
     }
 
     #[DataProvider('serverProvider')]

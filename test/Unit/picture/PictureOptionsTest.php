@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace parallelogram\images\test\Unit\picture;
 
+use parallelogram\images\picture\ElementAttributes;
 use parallelogram\images\picture\InvalidPictureException;
 use parallelogram\images\picture\Loading;
 use parallelogram\images\picture\OptionReader;
@@ -19,6 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PictureOptions::class)]
 #[CoversClass(OptionReader::class)]
+#[CoversClass(ElementAttributes::class)]
 #[Group('unit')]
 final class PictureOptionsTest extends TestCase
 {
@@ -28,12 +30,16 @@ final class PictureOptionsTest extends TestCase
     public static function invalidOptionsProvider(): array
     {
         return [
-            'unknown option'        => [['lazy' => true], 'Unknown picture option: lazy.'],
-            'text that isn\'t'      => [['class' => ['hero']], 'The class option must be text.'],
-            'flag that isn\'t'      => [['lazysrc' => 'yes'], 'The lazysrc option must be true or false.'],
-            'unchecked flag'        => [
+            'unknown option'                => [['lazy' => true], 'Unknown picture option: lazy.'],
+            'text that isn\'t'              => [['class' => ['hero']], 'The class option must be text.'],
+            'flag that isn\'t'              => [['lazysrc' => 'yes'], 'The lazysrc option must be true or false.'],
+            'unchecked flag'                => [
                 ['priority' => true, 'lazysrc' => 1],
                 'The lazysrc option must be true or false.',
+            ],
+            'picture attributes not a hash' => [
+                ['pictureAttributes' => 'id=top'],
+                'The pictureAttributes option must be a hash',
             ],
             'attributes not a hash' => [['attributes' => 'id=hero'], 'must be a hash of attribute names and values.'],
             'attribute value'       => [
@@ -79,20 +85,24 @@ final class PictureOptionsTest extends TestCase
     public function readsEveryOption(): void
     {
         static::assertEquals(
-            new PictureOptions('A boat', 'hero', '50vw', Loading::Lazysrc, [
-                'id'     => 'top',
-                'data-n' => 2,
-                'hidden' => null,
-            ]),
+            new PictureOptions(
+                'A boat',
+                '50vw',
+                Loading::Lazysrc,
+                new ElementAttributes('hero', ['id' => 'top', 'data-n' => 2, 'hidden' => null]),
+                new ElementAttributes('frame', ['data-reveal' => true]),
+            ),
             PictureOptions::fromArray(
                 [
-                    'alt'        => 'A boat',
-                    'class'      => 'hero',
-                    'sizes'      => '50vw',
-                    'lazysrc'    => true,
-                    'priority'   => false,
-                    'attributes' => ['id' => 'top', 'data-n' => 2, 'hidden' => null],
-                    'sources'    => [],
+                    'alt'               => 'A boat',
+                    'class'             => 'hero',
+                    'sizes'             => '50vw',
+                    'lazysrc'           => true,
+                    'priority'          => false,
+                    'attributes'        => ['id' => 'top', 'data-n' => 2, 'hidden' => null],
+                    'pictureClass'      => 'frame',
+                    'pictureAttributes' => ['data-reveal' => true],
+                    'sources'           => [],
                 ],
                 defaultAlt: 'Harbour',
             ),

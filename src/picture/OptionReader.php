@@ -26,8 +26,8 @@ final class OptionReader
     private const string ATTRIBUTE_NAME = '/^[a-zA-Z_:][a-zA-Z0-9_:.-]*$/';
 
     /**
-     * The `attributes` option: names and text, number, true, false or null
-     * values.
+     * An attributes option, such as `attributes`: names and text, number, true,
+     * false or null values.
      *
      * @param array<array-key, mixed> $options
      *
@@ -35,17 +35,17 @@ final class OptionReader
      *
      * @throws InvalidPictureException
      */
-    public static function attributes(array $options): array
+    public static function attributes(array $options, string $key): array
     {
-        if (! array_key_exists('attributes', $options)) {
+        if (! array_key_exists($key, $options)) {
             return [];
         }
 
-        if (! is_array($options['attributes'])) {
-            throw new InvalidPictureException('The attributes option must be a hash of attribute names and values.');
+        if (! is_array($options[$key])) {
+            throw new InvalidPictureException("The {$key} option must be a hash of attribute names and values.");
         }
 
-        $given = $options['attributes'];
+        $given = $options[$key];
 
         $scalars = array_filter($given, is_scalar(...));
         $nulls   = array_filter($given, is_null(...));
