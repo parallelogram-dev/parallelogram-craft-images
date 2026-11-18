@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Integration tests that boot a real Craft site. Run them from the sandbox
+    project, which requires this plugin through a path repository:
+
+        cd ../parallelogram-craft-sandbox
+        vendor/bin/phpunit -c vendor/parallelogram/craft-images/phpunit.craft.xml
+
+    They use the craft_images_test database, never the sandbox's own; install
+    it once with test/Craft/install-test-db.sh.
+
+    Each test must still name the class it covers, but may run anything else
+    (Craft itself, and the rest of the plugin) without listing it.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.5/phpunit.xsd"
+         bootstrap="test/Craft/bootstrap.php"
+         cacheDirectory=".phpunit.cache/craft"
+         colors="true"
+         executionOrder="random"
+         failOnRisky="true"
+         failOnWarning="true"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutCoverageMetadata="false"
+         requireCoverageMetadata="true">
+    <php>
+        <env name="CRAFT_DB_DATABASE" value="craft_images_test" force="true"/>
+    </php>
+    <testsuites>
+        <testsuite name="craft">
+            <directory>test/Craft</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>

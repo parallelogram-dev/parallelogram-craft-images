@@ -1,32 +1,79 @@
 {% import "_includes/forms" as forms %}
 
-<div class="btngroup iv-tabs">
-    <button type="button" class="btn iv-tab sel" data-pane="assignments">{{ 'Field assignments'|t('p-images') }}</button>
-    <button type="button" class="btn iv-tab" data-pane="matrices">{{ 'Variant matrices'|t('p-images') }}</button>
-    <button type="button" class="btn iv-tab" data-pane="other">{{ 'Other settings'|t('p-images') }}</button>
+<div class="btngroup pi-tabs">
+    <button type="button" class="btn pi-tab sel" data-pane="sizeSets">{{ 'Size sets'|t('p-images') }}</button>
+    <button type="button" class="btn pi-tab" data-pane="assignments">{{ 'Pre-generate'|t('p-images') }}</button>
+    <button type="button" class="btn pi-tab" data-pane="other">{{ 'Formats and processing'|t('p-images') }}</button>
+    <button type="button" class="btn pi-tab" data-pane="delivery">{{ 'Delivery'|t('p-images') }}</button>
 </div>
 
-<div class="iv-pane" data-pane="assignments">
-    <p class="instructions">{{ 'Choose which matrices each Asset field can use. Click a field to add one, or click the × on a tag to remove it. When a template renders an image it picks one of the matrices listed here.'|t('p-images') }}</p>
+<div class="pi-pane" data-pane="sizeSets">
+    {{ forms.editableTableField({
+        label: 'Size sets'|t('p-images'),
+        instructions: 'Each row is a set of sizes a template can ask for, e.g. `asset.picture(\'card\')`. Widths are a comma-separated ladder (`480, 720, 960`); widths larger than an image are skipped, so nothing is upscaled. Give a ratio such as `4:3` to crop every width to the same shape, or leave it blank to keep each image’s proportions. Leave every format unticked to use the defaults.'|t('p-images'),
+        id: 'sizeSetRows',
+        name: 'sizeSetRows',
+        cols: {
+            handle: { type: 'singleline', heading: 'Handle'|t('p-images'), width: '12%', placeholder: 'card' },
+            ratio: { type: 'singleline', heading: 'Ratio'|t('p-images'), width: '8%', placeholder: '4:3' },
+            widths: { type: 'singleline', heading: 'Widths'|t('p-images'), placeholder: '480, 720, 960' },
+            sizes: { type: 'singleline', heading: 'Sizes'|t('p-images'), placeholder: '100vw' },
+            mode: { type: 'select', heading: 'Mode'|t('p-images'), width: '10%', options: [
+                { label: 'Crop'|t('p-images'), value: 'crop' },
+                { label: 'Fit'|t('p-images'), value: 'fit' },
+                { label: 'Letterbox'|t('p-images'), value: 'letterbox' },
+                { label: 'Stretch'|t('p-images'), value: 'stretch' }
+            ] },
+            avif: { type: 'checkbox', heading: 'AVIF' },
+            webp: { type: 'checkbox', heading: 'WebP' },
+            jpg: { type: 'checkbox', heading: 'JPG' },
+            png: { type: 'checkbox', heading: 'PNG' }
+        },
+        rows: view.sizeSetRows(),
+        addRowLabel: 'Add a size set'|t('p-images'),
+        allowAdd: true,
+        allowDelete: true,
+        errors: settings.getErrors('sizeSets')
+    }) }}
 
-    {% set matrixOptions = [] %}
-    {% for handle in matrixHandles %}
-        {% set matrixOptions = matrixOptions | merge([{ label: handle|capitalize, value: handle }]) %}
-    {% endfor %}
+    <input type="hidden" name="alternateRows[__submitted]" value="1">
 
+    {{ forms.editableTableField({
+        label: 'Alternate images'|t('p-images'),
+        instructions: 'An art-directed alternative for a size set, such as a square crop for phones. When an image has another image in the chosen Assets field (on the volume’s field layout), `asset.picture()` shows that one while the media query matches, in the alternate size set if given, otherwise the same one. A template’s own `sources` option replaces it.'|t('p-images'),
+        id: 'alternateRows',
+        name: 'alternateRows',
+        cols: {
+            sizeSet: { type: 'singleline', heading: 'Size set'|t('p-images'), width: '15%', placeholder: 'wide' },
+            field: { type: 'select', heading: 'Assets field'|t('p-images'), options: [{ label: 'Choose a field…'|t('p-images'), value: '' }] | merge(assetFields | map(field => { label: field.name ~ ' (' ~ field.handle ~ ')', value: field.uid })) },
+            media: { type: 'singleline', heading: 'Media query'|t('p-images'), placeholder: '(max-width: 430px)' },
+            alternateSizeSet: { type: 'singleline', heading: 'Alternate size set'|t('p-images'), width: '15%', placeholder: 'square' }
+        },
+        rows: view.alternateRows(),
+        addRowLabel: 'Add an alternate image'|t('p-images'),
+        allowAdd: true,
+        allowDelete: true,
+        errors: settings.getErrors('alternates')
+    }) }}
+</div>
+
+<div class="pi-pane hidden" data-pane="assignments">
+    <p class="instructions">{{ 'Choose which size sets to generate ahead of time for the images in each field, when you run `php craft p-images/warm` or use the Utilities button. Nothing is made when an image is uploaded or saved. Templates can use any size set; anything not generated ahead of time is made the first time it is requested.'|t('p-images') }}</p>
+
+    {% set handles = view.sizeSetHandles() %}
     <input type="hidden" name="fieldAssignmentInput[__submitted]" value="1">
 
     {% for field in assetFields %}
-        {{ forms.selectizeField({
-            label: field.name ~ ' — ' ~ field.handle,
-            id: 'assign-' ~ field.handle,
-            name: 'fieldAssignmentInput[' ~ field.handle ~ ']',
-            multi: true,
-            options: matrixOptions,
-            values: settings.fieldAssignments[field.handle] ?? []
+        {{ forms.checkboxSelectField({
+            label: field.name,
+            instructions: field.handle,
+            id: 'assign-' ~ field.uid,
+            name: 'fieldAssignmentInput[' ~ field.uid ~ ']',
+            options: handles | map(handle => { label: handle, value: handle }),
+            values: view.handlesAssignedTo(field.uid)
         }) }}
     {% else %}
-        <p class="light">{{ 'No Asset fields found.'|t('p-images') }}</p>
+        <p class="light">{{ 'There are no Assets fields yet.'|t('p-images') }}</p>
     {% endfor %}
 
     {% if settings.getErrors('fieldAssignments') %}
@@ -36,46 +83,28 @@
     {% endif %}
 </div>
 
-<div class="iv-pane hidden" data-pane="matrices">
-    {{ forms.editableTableField({
-        label: 'Variant matrices'|t('p-images'),
-        instructions: 'Each row is a named matrix. Tick the formats to generate. Dimensions are comma-separated: a width (`960`), a width×height pair that crops to the row’s Mode (`800x600`), or a height-only value (`x600`).'|t('p-images'),
-        id: 'matrixRows',
-        name: 'matrixRows',
-        cols: {
-            handle: { type: 'singleline', heading: 'Handle'|t('p-images'), width: '12%', placeholder: 'card' },
-            sizes: { type: 'singleline', heading: 'Sizes'|t('p-images'), placeholder: '100vw' },
-            dimensions: { type: 'singleline', heading: 'Dimensions'|t('p-images'), placeholder: '480, 800x600, x960' },
-            avif: { type: 'checkbox', heading: 'AVIF'|t('p-images') },
-            webp: { type: 'checkbox', heading: 'WebP'|t('p-images') },
-            jpg: { type: 'checkbox', heading: 'JPG'|t('p-images') },
-            png: { type: 'checkbox', heading: 'PNG'|t('p-images') },
-            mode: { type: 'select', heading: 'Mode'|t('p-images'), width: '12%', options: [
-                { label: 'Crop', value: 'crop' },
-                { label: 'Fit', value: 'fit' },
-                { label: 'Stretch', value: 'stretch' },
-                { label: 'Letterbox', value: 'letterbox' }
-            ] }
-        },
-        rows: settings.matrixRowsForDisplay,
-        addRowLabel: 'Add a matrix'|t('p-images'),
-        allowAdd: true,
-        allowDelete: true,
-        errors: settings.getErrors('matrices')
+<div class="pi-pane hidden" data-pane="other">
+    {{ forms.checkboxSelectField({
+        label: 'Default formats'|t('p-images'),
+        instructions: 'Formats for size sets that don’t tick their own. The first universally supported one (JPG or PNG) is used for the `<img>` fallback.'|t('p-images'),
+        id: 'defaultFormats',
+        name: 'defaultFormats',
+        options: formats | map(format => { label: format.name, value: format.value }),
+        values: settings.defaultFormats,
+        errors: settings.getErrors('defaultFormats')
     }) }}
-</div>
 
-<div class="iv-pane hidden" data-pane="other">
-    <h2>{{ 'Format quality'|t('p-images') }}</h2>
-    <p class="instructions">{{ 'Encoder quality per format (1–100), applied to every matrix. The same number means different things per format — AVIF and WebP reach comparable quality at far lower values than JPG.'|t('p-images') }}</p>
+    <h2>{{ 'Quality'|t('p-images') }}</h2>
+    <p class="instructions">{{ 'Encoder quality per format (1–100) for the whole site. Leave blank for the default shown. AVIF and WebP reach similar quality at lower numbers than JPG.'|t('p-images') }}</p>
 
     <div class="flex">
-        {% for format, quality in settings.formatQuality %}
+        {% for format in formats %}
             {{ forms.textField({
-                label: format | upper,
-                id: 'formatQuality-' ~ format,
-                name: 'formatQuality[' ~ format ~ ']',
-                value: quality,
+                label: format.name,
+                id: 'formatQuality-' ~ format.value,
+                name: 'formatQuality[' ~ format.value ~ ']',
+                value: settings.formatQuality[format.value] ?? '',
+                placeholder: format.defaultQuality(),
                 type: 'number',
                 min: 1,
                 max: 100,
@@ -91,41 +120,27 @@
 
     <hr>
 
-    <h2>{{ 'Performance'|t('p-images') }}</h2>
-    {{ forms.textField({
-        label: 'ImageMagick thread limit'|t('p-images'),
-        instructions: 'Threads each encode may use (OpenMP). 0 leaves ImageMagick’s own default. Higher speeds AVIF on multi-core servers — keep it a few below your core count. One process either way (no extra processes spawned).'|t('p-images'),
-        id: 'threadLimit',
-        name: 'threadLimit',
-        value: settings.threadLimit,
-        type: 'number',
-        min: 0,
-        max: 64,
-        size: 4,
-        errors: settings.getErrors('threadLimit')
-    }) }}
+    <h2>{{ 'Processing'|t('p-images') }}</h2>
 
     {{ forms.lightswitchField({
-        label: 'Fast generation pipeline'|t('p-images'),
-        instructions: 'Decode each source once and resize every output from it, instead of one Craft transform per output. Much faster when warming. Any geometry it cannot handle falls back to Craft automatically.'|t('p-images'),
-        id: 'fastGenerate',
-        name: 'fastGenerate',
-        on: settings.fastGenerate,
-        errors: settings.getErrors('fastGenerate')
+        label: 'Auto-orient'|t('p-images'),
+        instructions: 'Rotate images according to their EXIF orientation, so phone photos aren’t sideways.'|t('p-images'),
+        id: 'autoOrient',
+        name: 'autoOrient',
+        on: settings.autoOrient
     }) }}
 
     {{ forms.lightswitchField({
         label: 'Convert to sRGB'|t('p-images'),
-        instructions: 'Convert each source to the sRGB colour profile before resizing, so wide-gamut originals render predictably on the web. Applies to the fast pipeline only.'|t('p-images'),
+        instructions: 'Convert each image to the sRGB colour profile before resizing, so wide-gamut originals look as expected on the web.'|t('p-images'),
         id: 'convertToSrgb',
         name: 'convertToSrgb',
-        on: settings.convertToSrgb,
-        errors: settings.getErrors('convertToSrgb')
+        on: settings.convertToSrgb
     }) }}
 
     {{ forms.textField({
         label: 'Sharpen amount'|t('p-images'),
-        instructions: 'Unsharp-mask strength applied once per resized size (0 disables). A gentle value (≈0.5) recovers the softness a downscale introduces without haloing. Fast pipeline only.'|t('p-images'),
+        instructions: 'Sharpening applied after resizing (0 turns it off). Around 0.5 recovers the softness downscaling causes without halos.'|t('p-images'),
         id: 'sharpenAmount',
         name: 'sharpenAmount',
         value: settings.sharpenAmount,
@@ -136,26 +151,157 @@
         size: 4,
         errors: settings.getErrors('sharpenAmount')
     }) }}
+
+    {{ forms.textField({
+        label: 'AVIF effort'|t('p-images'),
+        instructions: 'How hard the AVIF encoder works, from 0 (quickest, largest files) to 9 (slowest, smallest). Applies to ImageMagick, libvips and GD; imgproxy and Cloudflare ignore it. Backends write different bytes even at the same effort. Changing it leaves existing variants as they are; rebuild to apply it to them.'|t('p-images'),
+        id: 'avifEffort',
+        name: 'avifEffort',
+        value: settings.avifEffort,
+        type: 'number',
+        min: 0,
+        max: 9,
+        size: 4,
+        errors: settings.getErrors('avifEffort')
+    }) }}
+
+    {{ forms.textField({
+        label: 'ImageMagick thread limit'|t('p-images'),
+        instructions: 'Threads each encode may use. 0 leaves ImageMagick’s default. More threads speed up AVIF on multi-core servers; keep it a few below your core count.'|t('p-images'),
+        id: 'threadLimit',
+        name: 'threadLimit',
+        value: settings.threadLimit,
+        type: 'number',
+        min: 0,
+        max: 64,
+        size: 4,
+        errors: settings.getErrors('threadLimit')
+    }) }}
+
+    <hr>
+
+    <h2>{{ 'Markup'|t('p-images') }}</h2>
+
+    {{ forms.lightswitchField({
+        label: 'Use Lazysrc by default'|t('p-images'),
+        instructions: 'Have `asset.picture()` hand its sources to ParallelogramJS’s Lazysrc, with a `<noscript>` copy, unless a template passes `lazysrc: false`. Off writes native lazy-loading markup.'|t('p-images'),
+        id: 'lazysrcByDefault',
+        name: 'lazysrcByDefault',
+        on: settings.lazysrcByDefault
+    }) }}
+</div>
+
+<div class="pi-pane hidden" data-pane="delivery">
+    {% if not settings.isConfigured() %}
+        <p class="warning">{{ 'Variants are off until a filesystem and a path prefix are both chosen. Until then, no variants are made or served.'|t('p-images') }}</p>
+    {% endif %}
+
+    {{ forms.selectField({
+        label: 'Variant filesystem'|t('p-images'),
+        instructions: 'Where variant files are kept. Choose a local filesystem in the web root to have the web server send them directly, or a bucket or CDN to have requests redirected there.'|t('p-images'),
+        id: 'variantFilesystem',
+        name: 'variantFilesystem',
+        options: [{ label: 'Choose a filesystem…'|t('p-images'), value: '' }] | merge(filesystems | map(fs => { label: fs.name, value: fs.handle })),
+        value: settings.variantFilesystem,
+        errors: settings.getErrors('variantFilesystem')
+    }) }}
+
+    {{ forms.autosuggestField({
+        label: 'Path prefix'|t('p-images'),
+        instructions: 'The folder variants live under on that filesystem, such as `asset/variant`. Each image gets its own folder inside it. Can be an environment variable.'|t('p-images'),
+        id: 'variantPrefix',
+        name: 'variantPrefix',
+        value: settings.variantPrefix,
+        suggestEnvVars: true,
+        errors: settings.getErrors('variantPrefix')
+    }) }}
+
+    <hr>
+
+    <h2>{{ 'Backend'|t('p-images') }}</h2>
+
+    {% set backendOptions = backends | map(kind => { label: kind.name, value: kind.value }) %}
+
+    {{ forms.selectField({
+        label: 'Site backend'|t('p-images'),
+        instructions: 'What makes the images. Auto uses libvips when php-vips can load it, otherwise ImageMagick when it’s installed, otherwise GD. imgproxy and Cloudflare make images themselves and pages link to them directly.'|t('p-images'),
+        id: 'backends-default',
+        name: 'backends[default]',
+        options: backendOptions,
+        value: settings.backends.default ?? 'auto'
+    }) }}
+
+    {% for volume in volumes %}
+        {{ forms.selectField({
+            label: volume.name,
+            instructions: 'Leave as “Site backend” to follow the setting above.'|t('p-images'),
+            id: 'backends-volume-' ~ volume.uid,
+            name: 'backends[volumes][' ~ volume.uid ~ ']',
+            options: [{ label: 'Site backend'|t('p-images'), value: '' }] | merge(backendOptions),
+            value: settings.backends.volumes[volume.uid] ?? ''
+        }) }}
+    {% endfor %}
+
+    <h3>imgproxy</h3>
+
+    {{ forms.autosuggestField({
+        label: 'Server URL'|t('p-images'),
+        id: 'backends-imgproxyUrl',
+        name: 'backends[imgproxyUrl]',
+        value: settings.backends.imgproxyUrl ?? '',
+        suggestEnvVars: true
+    }) }}
+
+    {{ forms.autosuggestField({
+        label: 'Key'|t('p-images'),
+        instructions: 'An environment variable holding the hex key, such as `$IMGPROXY_KEY`. Literal keys aren’t accepted, so they never reach project config.'|t('p-images'),
+        id: 'backends-imgproxyKey',
+        name: 'backends[imgproxyKey]',
+        value: settings.backends.imgproxyKey ?? '',
+        suggestEnvVars: true
+    }) }}
+
+    {{ forms.autosuggestField({
+        label: 'Salt'|t('p-images'),
+        instructions: 'An environment variable holding the hex salt, such as `$IMGPROXY_SALT`.'|t('p-images'),
+        id: 'backends-imgproxySalt',
+        name: 'backends[imgproxySalt]',
+        value: settings.backends.imgproxySalt ?? '',
+        suggestEnvVars: true
+    }) }}
+
+    <h3>Cloudflare Images</h3>
+
+    {{ forms.autosuggestField({
+        label: 'Zone URL'|t('p-images'),
+        instructions: 'The address of the Cloudflare zone with image transformations turned on, such as `https://www.example.com`. Cloudflare can’t make PNG files.'|t('p-images'),
+        id: 'backends-cloudflareZoneUrl',
+        name: 'backends[cloudflareZoneUrl]',
+        value: settings.backends.cloudflareZoneUrl ?? '',
+        suggestEnvVars: true
+    }) }}
+
+    {% if settings.getErrors('backends') %}
+        <ul class="errors">
+            {% for error in settings.getErrors('backends') %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+    {% endif %}
 </div>
 
 {% css %}
-.iv-tabs { margin-bottom: 24px; }
-.iv-pane { margin-top: 0; }
+.pi-tabs { margin-bottom: 24px; }
 {% endcss %}
 
 {% js %}
 (function () {
-    var tabs = document.querySelectorAll('.iv-tab');
-    var panes = document.querySelectorAll('.iv-pane');
-    if (!tabs.length) { return; }
+    var tabs = document.querySelectorAll('.pi-tab');
+    var panes = document.querySelectorAll('.pi-pane');
 
     tabs.forEach(function (tab) {
         tab.addEventListener('click', function () {
             var target = tab.getAttribute('data-pane');
             tabs.forEach(function (t) { t.classList.toggle('sel', t === tab); });
-            panes.forEach(function (p) {
-                p.classList.toggle('hidden', p.getAttribute('data-pane') !== target);
-            });
+            panes.forEach(function (p) { p.classList.toggle('hidden', p.getAttribute('data-pane') !== target); });
         });
     });
 })();

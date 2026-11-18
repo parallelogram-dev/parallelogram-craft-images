@@ -24,6 +24,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: xdebug
+          extensions: imagick
           tools: composer:v2
 
       - name: Install locked dependencies

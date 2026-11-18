@@ -1,214 +1,30 @@
-{% import "_includes/forms" as forms %}
-
-{% macro warmButton(label, field, matrix, active, submit) %}
-    <span class="iv-warm-cell" data-field="{{ field }}" data-matrix="{{ matrix }}">
-        <form method="post" accept-charset="UTF-8">
-            {{ csrfInput() }}
-            {{ actionInput('p-images/warm/queue') }}
-            {{ redirectInput('utilities/p-images-warm') }}
-            {% if field %}{{ hiddenInput('field', field) }}{% endif %}
-            {% if matrix %}{{ hiddenInput('matrix', matrix) }}{% endif %}
-            <button type="submit" class="btn {{ submit ? 'submit' : 'small' }}{{ active ? ' disabled' : '' }}" {{ active ? 'disabled' : '' }}>
-                <span class="iv-warm-label">{{ active ? 'Rebuilding…'|t('p-images') : label }}</span>
-                <span class="iv-warm-spinner spinner{{ active ? '' : ' hidden' }}"></span>
-            </button>
-        </form>
-    </span>
+{% macro action(route, label, instructions) %}
+    <form method="post" accept-charset="UTF-8" class="pi-utility-action">
+        {{ csrfInput() }}
+        {{ actionInput(route) }}
+        <p class="instructions">{{ instructions }}</p>
+        <button type="submit" class="btn submit">{{ label }}</button>
+    </form>
 {% endmacro %}
 
-{% macro covBadge(cov) %}
-    {% if cov is null %}<span class="iv-cov light">{{ 'not audited'|t('p-images') }}</span>
-    {% elseif cov.missing == 0 %}<span class="iv-cov iv-cov-ok">&check; {{ cov.covered }}/{{ cov.assets }}</span>
-    {% else %}<span class="iv-cov iv-cov-warn">{{ cov.covered }}/{{ cov.assets }} &middot; {{ cov.missing }} {{ 'missing'|t('p-images') }}</span>
-    {% endif %}
-{% endmacro %}
+{% from _self import action %}
 
-{% from _self import warmButton, covBadge %}
+<p class="instructions">{{ 'Image variants are made the first time they’re asked for; nothing is made when an image is uploaded. These buttons queue making the size sets chosen on the Pre-generate tab for images already uploaded, or removing variants nothing can ask for; progress shows in the queue.'|t('p-images') }}</p>
 
-<p class="instructions">{{ 'Each image needs a few different sizes so your pages load quickly. Use “Audit coverage” to see which images are ready and which still need sizes made — it only checks and never changes your images. If any are missing, Rebuild creates them. You only need to rebuild when something is missing.'|t('p-images') }}</p>
+{{ action(
+    'p-images/utility/warm',
+    'Make missing variants'|t('p-images'),
+    'Makes every image’s missing variants. Variants that already exist are left alone.'|t('p-images')
+) }}
 
-<div class="iv-toolbar">
-    <form method="post" accept-charset="UTF-8" class="iv-inline">
-        {{ csrfInput() }}
-        {{ actionInput('p-images/warm/audit') }}
-        {{ redirectInput('utilities/p-images-warm') }}
-        <button type="submit" id="iv-audit-btn" class="btn{{ anyAuditing ? ' disabled' : '' }}" {{ anyAuditing ? 'disabled' : '' }}>
-            <span class="iv-audit-label">{{ anyAuditing ? 'Auditing…'|t('p-images') : 'Audit coverage'|t('p-images') }}</span>
-            <span class="iv-audit-spinner spinner{{ anyAuditing ? '' : ' hidden' }}"></span>
-        </button>
-    </form>
-    <span id="iv-audited" class="light" data-at="{{ auditedAt ?: '' }}"></span>
-</div>
+<hr>
 
-<div class="iv-active-wrap">
-    <div id="iv-warm-active" class="iv-warm-active"></div>
-    <form id="iv-warm-stop" method="post" accept-charset="UTF-8" class="hidden">
-        {{ csrfInput() }}
-        {{ actionInput('p-images/warm/stop') }}
-        {{ redirectInput('utilities/p-images-warm') }}
-        <button type="submit" class="btn caution small">{{ 'Stop'|t('p-images') }}</button>
-    </form>
-</div>
+{{ action(
+    'p-images/utility/sweep',
+    'Remove unused variants'|t('p-images'),
+    'Removes variants of deleted images, and files left behind by replaced images or changed size sets.'|t('p-images')
+) }}
 
-<table class="data fullwidth">
-    <thead>
-        <tr>
-            <th>{{ 'Field'|t('p-images') }}</th>
-            <th>{{ 'Matrix'|t('p-images') }}</th>
-            <th>{{ 'Assets'|t('p-images') }}</th>
-            <th>{{ 'Coverage'|t('p-images') }}</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in rows %}
-            <tr>
-                <td><code>{{ row.field }}</code></td>
-                <td><code>{{ row.matrix }}</code></td>
-                <td>{{ row.count }}</td>
-                <td class="iv-cov-cell" data-matrix="{{ row.matrix }}">{{ covBadge(row.coverage) }}</td>
-                <td class="thin">{{ warmButton('Rebuild'|t('p-images'), row.field, row.matrix, row.active, false) }}</td>
-            </tr>
-        {% else %}
-            <tr><td colspan="5">{{ 'No field assignments yet.'|t('p-images') }}</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+<hr>
 
-<p class="buttons">{{ warmButton('Rebuild everything'|t('p-images'), '', '', anyActive, true) }}</p>
-
-{% css %}
-.iv-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
-.iv-inline { display: inline-block; }
-.iv-active-wrap { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
-.iv-warm-active { flex: 1 1 auto; margin: 0; }
-.iv-warm-row { margin: 0 0 10px; }
-.iv-warm-row:last-child { margin-bottom: 0; }
-#iv-warm-stop { flex: 0 0 auto; }
-.iv-warm-bar { height: 6px; border-radius: 3px; background: #e3e5e8; overflow: hidden; margin-top: 4px; }
-.iv-warm-bar-fill { height: 100%; background: #3f7fff; transition: width .4s ease; }
-.iv-cov-ok { color: #127f48; font-weight: 500; }
-.iv-cov-warn { color: #bf7d10; }
-{% endcss %}
-
-{% js %}
-(function () {
-  try {
-    var statusUrl = Craft.getActionUrl('p-images/warm/status');
-    var cells = Array.prototype.slice.call(document.querySelectorAll('.iv-warm-cell'));
-    var panel = document.getElementById('iv-warm-active');
-    var stopForm = document.getElementById('iv-warm-stop');
-    var auditBtn = document.getElementById('iv-audit-btn');
-    var auditedEl = document.getElementById('iv-audited');
-
-    function covers(scope, field, matrix) {
-        var f = scope.field || null, m = scope.matrix || null;
-        return (f === null || f === field) && (m === null || m === matrix);
-    }
-
-    function applyButtons(active, pending) {
-        var warms = active.filter(function (s) { return (s.kind || 'warm') === 'warm'; });
-        cells.forEach(function (cell) {
-            var field = cell.getAttribute('data-field') || null;
-            var matrix = cell.getAttribute('data-matrix') || null;
-            var on = warms.some(function (s) { return covers(s, field, matrix); });
-            // The "warm everything" cell also reflects any queued warm.
-            if (!on && field === null && matrix === null && pending.warm > 0) { on = true; }
-            var btn = cell.querySelector('button');
-            if (!btn) { return; }
-            var label = cell.querySelector('.iv-warm-label');
-            var spinner = cell.querySelector('.iv-warm-spinner');
-            btn.disabled = on;
-            btn.classList.toggle('disabled', on);
-            if (label) { label.textContent = on ? Craft.t('p-images', 'Rebuilding…') : btn.getAttribute('data-label'); }
-            if (spinner) { spinner.classList.toggle('hidden', !on); }
-        });
-
-        var auditing = active.some(function (s) { return (s.kind || 'warm') === 'audit'; }) || pending.audit > 0;
-        if (auditBtn) {
-            auditBtn.disabled = auditing;
-            auditBtn.classList.toggle('disabled', auditing);
-            var al = auditBtn.querySelector('.iv-audit-label');
-            if (al) { al.textContent = auditing ? Craft.t('p-images', 'Auditing…') : Craft.t('p-images', 'Audit coverage'); }
-            var as = auditBtn.querySelector('.iv-audit-spinner');
-            if (as) { as.classList.toggle('hidden', !auditing); }
-        }
-    }
-
-    function renderProgress(active, pending, now) {
-        var html = active.map(function (s) {
-            var total = s.total || 0, processed = s.processed || 0;
-            var pct = total ? Math.round(processed / total * 100) : 0;
-            var verb = (s.kind || 'warm') === 'audit' ? Craft.t('p-images', 'Auditing') : Craft.t('p-images', 'Rebuilding');
-            var label = verb + ' ' + (s.field || 'all fields') + ' / ' + (s.matrix || 'all matrices');
-            var age = now - (s.updatedAt || now);
-            var stale = age > 30 ? ' <span class="error">(' + Craft.t('p-images', 'no update for {n}s', { n: age }) + ')</span>' : '';
-            return '<div class="iv-warm-row"><strong>' + label + '</strong> — ' + processed + ' / ' + total + ' (' + pct + '%)' + stale +
-                '<div class="iv-warm-bar"><div class="iv-warm-bar-fill" style="width:' + pct + '%"></div></div></div>';
-        });
-
-        var queued = [];
-        if (pending.audit > 0) { queued.push(pending.audit + ' ' + Craft.t('p-images', 'audit')); }
-        if (pending.warm > 0) { queued.push(pending.warm + ' ' + Craft.t('p-images', 'rebuild')); }
-        if (queued.length) {
-            html.push('<p class="light">' + Craft.t('p-images', 'Queued: {list} job(s) — waiting for the queue to run.', { list: queued.join(', ') }) + '</p>');
-        }
-
-        panel.innerHTML = html.join('');
-        // Stop applies to running or queued warms.
-        stopForm.classList.toggle('hidden', !(active.some(function (s) { return (s.kind || 'warm') === 'warm'; }) || pending.warm > 0));
-    }
-
-    function renderCoverage(coverage, auditedAt, now) {
-        document.querySelectorAll('.iv-cov-cell').forEach(function (cell) {
-            var cov = coverage[cell.getAttribute('data-matrix')];
-            if (!cov) { cell.innerHTML = '<span class="iv-cov light">' + Craft.t('p-images', 'not audited') + '</span>'; return; }
-            if (cov.missing === 0) {
-                cell.innerHTML = '<span class="iv-cov iv-cov-ok">✓ ' + cov.covered + '/' + cov.assets + '</span>';
-            } else {
-                cell.innerHTML = '<span class="iv-cov iv-cov-warn">' + cov.covered + '/' + cov.assets + ' · ' + cov.missing + ' ' + Craft.t('p-images', 'missing') + '</span>';
-            }
-        });
-        if (auditedAt) {
-            var ago = now - auditedAt;
-            auditedEl.textContent = Craft.t('p-images', 'Last audited {n}s ago', { n: ago });
-        } else {
-            auditedEl.textContent = Craft.t('p-images', 'Not audited yet');
-        }
-    }
-
-    cells.forEach(function (cell) {
-        var btn = cell.querySelector('button');
-        var form = cell.querySelector('form');
-        if (!btn || !form) { return; }
-        var label = cell.querySelector('.iv-warm-label');
-        btn.setAttribute('data-label', label ? label.textContent.trim() : 'Rebuild');
-        form.addEventListener('submit', function () {
-            btn.disabled = true;
-            btn.classList.add('disabled');
-            if (label) { label.textContent = Craft.t('p-images', 'Rebuilding…'); }
-            var sp = cell.querySelector('.iv-warm-spinner');
-            if (sp) { sp.classList.remove('hidden'); }
-        });
-    });
-
-    function poll() {
-        fetch(statusUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                var active = data.active || [];
-                var pending = data.pending || { warm: 0, audit: 0 };
-                renderProgress(active, pending, data.now || 0);
-                applyButtons(active, pending);
-                renderCoverage(data.coverage || {}, data.auditedAt || 0, data.now || 0);
-            })
-            .catch(function () {});
-    }
-
-    setInterval(poll, 5000);
-    poll();
-  } catch (e) {
-    if (window.console && window.console.error) { window.console.error('Parallelogram Images utility JS:', e); }
-  }
-})();
-{% endjs %}
+<p class="light">{{ 'On a server, use php craft p-images/warm, audit, rebuild and gc for the same work, with progress in the terminal.'|t('p-images') }}</p>

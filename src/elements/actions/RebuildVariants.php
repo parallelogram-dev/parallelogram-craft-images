@@ -1,43 +1,52 @@
 <?php
 
+declare(strict_types=1);
+
 namespace parallelogram\images\elements\actions;
 
 use Craft;
 use craft\base\ElementAction;
-use craft\elements\Asset;
+use craft\elements\db\AssetQuery;
 use craft\elements\db\ElementQueryInterface;
-use parallelogram\images\Plugin;
+use craft\helpers\Queue;
+use Override;
+use parallelogram\images\jobs\RebuildJob;
 
 /**
- * Assets index action: force-rebuild the selected images' variants. Runs
- * synchronously — best for a handful of suspect assets; use the CLI
- * p-images/rebuild --volume for bulk.
+ * Assets index action: deletes and remakes the selected images' variants,
+ * one queue job per image.
+ *
+ * @api
  */
-class RebuildVariants extends ElementAction
+final class RebuildVariants extends ElementAction
 {
+    #[Override]
     public function getConfirmationMessage(): ?string
     {
-        return Craft::t('p-images', 'Delete and regenerate variants for the selected image(s)?');
+        return Craft::t('p-images', message: 'Delete and remake the variants of the selected images?');
     }
 
+    #[Override]
     public function getTriggerLabel(): string
     {
-        return Craft::t('p-images', 'Rebuild image variants');
+        return Craft::t('p-images', message: 'Rebuild image variants');
     }
 
+    #[Override]
     public function performAction(ElementQueryInterface $query): bool
     {
-        $warmer = Plugin::getInstance()->warmer;
-        $count  = 0;
-
-        foreach ($query->kind('image')->all() as $asset) {
-            if ($asset instanceof Asset) {
-                $warmer->rebuild($asset);
-                $count++;
-            }
+        if (! $query instanceof AssetQuery) {
+            return false;
         }
 
-        $this->setMessage(Craft::t('p-images', 'Rebuilt variants for {n} image(s).', ['n' => $count]));
+        $count = 0;
+
+        foreach ($query->kind('image')->ids() as $id) {
+            Queue::push(new RebuildJob(['assetId' => (int) $id]));
+            ++$count;
+        }
+
+        $this->setMessage(Craft::t('p-images', message: 'Rebuilding variants of {n} images.', params: ['n' => $count]));
 
         return true;
     }

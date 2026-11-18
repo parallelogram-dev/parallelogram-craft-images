@@ -1,226 +1,229 @@
 <?php
 
+declare(strict_types=1);
+
 namespace parallelogram\images;
 
 use Craft;
-use craft\base\Element;
-use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
-use craft\elements\Asset;
-use craft\events\AssetEvent;
-use craft\events\DefineMenuItemsEvent;
-use craft\events\ModelEvent;
-use craft\events\RegisterComponentTypesEvent;
-use craft\events\RegisterElementActionsEvent;
+use craft\events\RegisterUrlRulesEvent;
 use craft\fields\Assets;
-use craft\helpers\Queue;
-use craft\services\Assets as AssetsService;
-use craft\services\Elements;
-use craft\services\Utilities;
-use craft\web\twig\variables\CraftVariable;
-use parallelogram\images\elements\actions\RebuildVariants;
-use parallelogram\images\jobs\GenerateJob;
-use parallelogram\images\listeners\AssetEvents;
+use craft\helpers\App;
+use craft\web\UrlManager;
+use craft\web\View;
+use Imagick;
+use Override;
+use parallelogram\images\backends\BackendKind;
+use parallelogram\images\craft\AssetMethods;
+use parallelogram\images\craft\AssetPictures;
+use parallelogram\images\craft\BlitzIntegration;
+use parallelogram\images\craft\ControlPanelEvents;
+use parallelogram\images\craft\DeliveryFactory;
+use parallelogram\images\craft\LiveCraftEnvironment;
+use parallelogram\images\craft\PictureServiceFactory;
+use parallelogram\images\craft\PlaceholderEvents;
+use parallelogram\images\craft\SecretProvisioner;
+use parallelogram\images\craft\Warming;
+use parallelogram\images\craft\WarmingEvents;
+use parallelogram\images\craft\WarmingFactory;
+use parallelogram\images\delivery\VariantRequestHandler;
+use parallelogram\images\events\PlaceholderSavedEvent;
 use parallelogram\images\models\Settings;
-use parallelogram\images\services\Generator;
-use parallelogram\images\services\PathBuilder;
-use parallelogram\images\services\Pipeline;
-use parallelogram\images\services\Resolver;
-use parallelogram\images\services\VariantRelocator;
-use parallelogram\images\services\Warmer;
-use parallelogram\images\utilities\WarmUtility;
-use parallelogram\images\web\twig\VariantsVariable;
+use parallelogram\images\models\SettingsView;
+use parallelogram\images\sizing\Format;
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
 use yii\base\Event;
+use yii\base\Exception;
+
+use function array_filter;
+use function array_values;
+use function extension_loaded;
+use function is_string;
+use function preg_quote;
+use function trim;
 
 /**
- * Parallelogram Images.
+ * Parallelogram Images: responsive image variants made from size sets,
+ * stored at stable paths, and generated on first request when missing.
  *
- * Owns the definition, generation, and URL production of responsive image
- * variants. Generation is synchronous (on save/replace) and via the warm
- * console command — never the queue. Render emits pre-generated static paths
- * via craft.pImages.variantSet().
+ * @api
  *
- * @property-read Settings $settings
- * @property-read Generator $generator
- * @property-read PathBuilder $paths
- * @property-read Pipeline $pipeline
- * @property-read Resolver $resolver
- * @property-read VariantRelocator $relocator
- * @property-read Warmer $warmer
+ * @method Settings getSettings()
  */
-class Plugin extends BasePlugin
+final class Plugin extends BasePlugin
 {
-    public string $schemaVersion = '0.1.0';
+    /**
+     * Fired with a {@see PlaceholderSavedEvent} after an image's placeholder
+     * colour is stored. Listen with
+     * `Event::on(Plugin::class, Plugin::EVENT_AFTER_SAVE_PLACEHOLDER, ...)`.
+     */
+    public const string EVENT_AFTER_SAVE_PLACEHOLDER = 'afterSavePlaceholder';
 
     public bool $hasCpSettings = true;
 
+    public string $schemaVersion = '0.1.0';
+
+    private ?AssetPictures $assetPictures = null;
+
+    private ?VariantRequestHandler $deliveryHandler = null;
+
+    private ?Warming $warmingService = null;
+
     /**
-     * Add a "Rebuild image variants" item to the asset edit screen's action
-     * menu. For an image with assigned matrices it is live and queues a
-     * single-asset RebuildJob; for an image with none it is shown greyed-out
-     * (so the feature stays discoverable) with the reason. Non-images, and users
-     * who cannot save the asset, get nothing.
+     * Sends requests under the variant prefix to the plugin, once variants
+     * are configured, passing the whole path (prefix included) as
+     * `variantPath`. Files that exist are served by the web server first.
      */
-    public function handleAssetActionMenuItems(DefineMenuItemsEvent $event): void
+    public static function registerVariantRoute(RegisterUrlRulesEvent $event): void
     {
-        $asset = $event->sender;
+        $settings = self::getInstance()?->getSettings();
+        $prefix   = trim(self::parsed($settings->variantPrefix ?? ''), characters: '/');
 
-        if (
-            ! $asset instanceof Asset
-            || Asset::KIND_IMAGE !== $asset->kind
-            || ! $asset->id
-            || $asset->getIsRevision()
-        ) {
+        if (null === $settings || ! $settings->isConfigured() || '' === $prefix) {
             return;
         }
 
-        if (! Craft::$app->getUser()->checkPermission('saveAssets:' . $asset->getVolume()->uid)) {
-            return;
-        }
+        $event->rules['<variantPath:' . preg_quote($prefix, delimiter: '#') . '/.+>'] = 'p-images/variants/serve';
+    }
 
-        $id    = sprintf('iv-rebuild-%s', mt_rand());
-        $label = Craft::t('p-images', 'Rebuild image variants');
+    private static function parsed(string $value): string
+    {
+        $parsed = App::parseEnv($value);
 
-        if ($this->warmer->matrixHandlesForAsset($asset) === []) {
-            $event->items[] = [
-                'id'          => $id,
-                'icon'        => 'arrows-rotate',
-                'label'       => $label,
-                'description' => Craft::t('p-images', 'Not used in a field with image variants.'),
-                'disabled'    => true,
-                'attributes'  => ['disabled' => true],
-            ];
+        return is_string($parsed) ? $parsed : '';
+    }
 
-            return;
-        }
-
-        $event->items[] = [
-            'id'    => $id,
-            'icon'  => 'arrows-rotate',
-            'label' => $label,
-        ];
-
-        $view = Craft::$app->getView();
-        $view->registerJsWithVars(
-            fn($id, $assetId) => <<<JS
-                $('#' + $id).on('activate', () => {
-                  Craft.sendActionRequest('POST', 'p-images/rebuild/queue', { data: { assetId: $assetId } })
-                    .then((response) => Craft.cp.displayNotice(response.data.message))
-                    .catch((e) => Craft.cp.displayError(e?.response?.data?.message));
-                });
-                JS,
-            [
-                $view->namespaceInputId($id),
-                $asset->id,
-            ],
+    /**
+     * The handler for variant requests, or null until variants are fully
+     * configured.
+     */
+    public function delivery(): ?VariantRequestHandler
+    {
+        return $this->deliveryHandler ??= (new DeliveryFactory(new LiveCraftEnvironment()))->handler(
+            $this->getSettings(),
         );
     }
 
+    #[Override]
     public function init(): void
     {
         parent::init();
 
-        $this->setComponents([
-            'generator' => Generator::class,
-            'paths'     => PathBuilder::class,
-            'pipeline'  => Pipeline::class,
-            'resolver'  => Resolver::class,
-            'warmer'    => Warmer::class,
-            'relocator' => fn(): VariantRelocator => new VariantRelocator(
-                $this->paths,
-                $this->generator,
-                $this->warmer,
-                Craft::$app->getAssets(),
-            ),
-        ]);
+        $threads = $this->getSettings()->threadLimit;
 
-        Event::on(
-            Asset::class,
-            Asset::EVENT_BEFORE_HANDLE_FILE,
-            function (AssetEvent $event): void {
-                $this->relocator->copyToNewLocation($event->asset, $event->isNew);
+        if ($threads > 0 && extension_loaded('imagick')) {
+            Imagick::setResourceLimit(Imagick::RESOURCETYPE_THREAD, $threads);
+        }
+
+        Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_SITE_URL_RULES, [self::class, 'registerVariantRoute']);
+
+        AssetMethods::register(fn(): AssetPictures => (self::getInstance() ?? $this)->pictures());
+        BlitzIntegration::register();
+        PlaceholderEvents::register();
+        ControlPanelEvents::register();
+        WarmingEvents::register();
+    }
+
+    /**
+     * What `asset.picture()` and `asset.variants()` use, built from the
+     * current settings.
+     */
+    public function pictures(): AssetPictures
+    {
+        $settings = $this->getSettings();
+
+        return $this->assetPictures ??= (new PictureServiceFactory(
+            new LiveCraftEnvironment(),
+            Craft::$app->getConfig()->getGeneral()->devMode,
+            static function (string $message): void {
+                Craft::warning($message, category: 'p-images');
             },
-        );
+        ))->pictures($settings);
+    }
 
-        Event::on(
-            Asset::class,
-            Element::EVENT_AFTER_SAVE,
-            function (ModelEvent $event): void {
-                /** @var Asset $asset */
-                $asset         = $event->sender;
-                $matrixHandles = $this->relocator->finishRelocation($asset);
+    /**
+     * Applies new settings and drops the request handler built from the old
+     * ones.
+     *
+     * @param array<array-key, mixed> $settings
+     */
+    #[Override]
+    public function setSettings(array $settings): void
+    {
+        parent::setSettings($settings);
+        $this->assetPictures   = null;
+        $this->deliveryHandler = null;
+        $this->warmingService  = null;
+    }
 
-                if ([] !== $matrixHandles && ! Craft::$app->getRequest()->getIsConsoleRequest()) {
-                    Queue::push(new GenerateJob(['assetId' => $asset->id, 'matrixHandles' => $matrixHandles]));
-                }
-            },
-        );
-
-        Event::on(
-            Utilities::class,
-            Utilities::EVENT_REGISTER_UTILITIES,
-            static function (RegisterComponentTypesEvent $event): void {
-                $event->types[] = WarmUtility::class;
-            },
-        );
-
-        Event::on(
-            Asset::class,
-            Element::EVENT_REGISTER_ACTIONS,
-            static function (RegisterElementActionsEvent $event): void {
-                $event->actions[] = RebuildVariants::class;
-            },
-        );
-
-        Event::on(
-            Asset::class,
-            Element::EVENT_DEFINE_ACTION_MENU_ITEMS,
-            [$this, 'handleAssetActionMenuItems'],
-        );
-
-        Event::on(
-            Elements::class,
-            Elements::EVENT_AFTER_SAVE_ELEMENT,
-            [AssetEvents::class, 'handleElementSave'],
-        );
-
-        Event::on(
-            AssetsService::class,
-            AssetsService::EVENT_AFTER_REPLACE_ASSET,
-            [AssetEvents::class, 'handleAssetReplace'],
-        );
-
-        Event::on(
-            CraftVariable::class,
-            CraftVariable::EVENT_INIT,
-            static function (Event $event): void {
-                /** @var CraftVariable $variable */
-                $variable = $event->sender;
-                $variable->set('pImages', VariantsVariable::class);
-            },
+    /**
+     * Making and removing variants ahead of time, or null until variants are
+     * fully configured.
+     */
+    public function warming(): ?Warming
+    {
+        return $this->warmingService ??= (new WarmingFactory(new LiveCraftEnvironment()))->warming(
+            $this->getSettings(),
         );
     }
 
-    protected function createSettingsModel(): ?Model
+    /**
+     * Adds a variant secret to `.env` unless the site already has one.
+     *
+     * @throws Exception When the secret can't be generated or `.env` can't be written.
+     */
+    #[Override]
+    protected function afterInstall(): void
+    {
+        parent::afterInstall();
+
+        (new SecretProvisioner(
+            App::env(...),
+            /**
+             * @throws Exception
+             */
+            static function (string $name, string $value): void {
+                Craft::$app->getConfig()->setDotEnvVar($name, $value);
+            },
+            /**
+             * @throws Exception
+             */
+            static fn(): string => Craft::$app->getSecurity()->generateRandomString(48),
+        ))->provision();
+    }
+
+    #[Override]
+    protected function createSettingsModel(): Settings
     {
         return new Settings();
     }
 
+    /**
+     * @throws Exception
+     * @throws LoaderError
+     * @throws RuntimeError
+     * @throws SyntaxError When the settings template is broken.
+     */
+    #[Override]
     protected function settingsHtml(): ?string
     {
         $settings = $this->getSettings();
+        /** @var View $view Craft's view is always its web view, in console requests too. */
+        $view = Craft::$app->getView();
 
-        $assetFields = array_values(array_filter(
-            Craft::$app->getFields()->getAllFields(),
-            static fn($field) => $field instanceof Assets,
-        ));
-
-        return Craft::$app->getView()
-            ->renderTemplate('p-images/_settings', [
-                'plugin'        => $this,
-                'settings'      => $settings,
-                'assetFields'   => $assetFields,
-                'matrixHandles' => array_keys($settings->matrices),
-            ]);
+        return $view->renderTemplate('p-images/_settings', [
+            'settings'    => $settings,
+            'view'        => new SettingsView($settings),
+            'assetFields' => array_values(array_filter(
+                Craft::$app->getFields()->getAllFields(),
+                static fn(object $field): bool => $field instanceof Assets,
+            )),
+            'formats'     => Format::cases(),
+            'backends'    => BackendKind::cases(),
+            'volumes'     => Craft::$app->getVolumes()->getAllVolumes(),
+            'filesystems' => Craft::$app->getFs()->getAllFilesystems(),
+        ]);
     }
 }
