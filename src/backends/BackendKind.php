@@ -11,7 +11,7 @@ namespace parallelogram\images\backends;
  */
 enum BackendKind: string
 {
-    /** ImageMagick when it's installed, otherwise GD. */
+    /** libvips when it's usable, otherwise ImageMagick, otherwise GD. */
     case Auto = 'auto';
 
     /** Cloudflare Images, linked to directly. */
@@ -25,6 +25,9 @@ enum BackendKind: string
 
     /** A self-hosted imgproxy server, linked to directly. */
     case Imgproxy = 'imgproxy';
+
+    /** libvips through php-vips and PHP's FFI extension. */
+    case Vips = 'vips';
 
     /**
      * Whether a separate service makes the images, so pages link to it and

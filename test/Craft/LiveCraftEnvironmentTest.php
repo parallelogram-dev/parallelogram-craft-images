@@ -75,13 +75,14 @@ final class LiveCraftEnvironmentTest extends TestCase
         $environment = new LiveCraftEnvironment();
 
         static::assertSame(
-            [true, true, false, true, true],
+            [true, true, false, true, true, true],
             [
                 str_starts_with($environment->siteUrl(), 'http'),
                 '' !== $environment->parse('$P_IMAGES_SECRET'),
-                $environment->extensionLoaded(''),
-                $environment->extensionLoaded('gd'),
+                $environment->hasLibrary(''),
+                $environment->hasLibrary('gd'),
                 $environment->mutex() instanceof Mutex,
+                $environment->hasLibrary('vips'),
             ],
         );
     }

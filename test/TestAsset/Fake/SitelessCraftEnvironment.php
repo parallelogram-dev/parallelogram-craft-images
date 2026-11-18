@@ -24,12 +24,6 @@ final readonly class SitelessCraftEnvironment implements CraftEnvironmentInterfa
     ) {}
 
     #[Override]
-    public function extensionLoaded(string $extension): bool
-    {
-        return $this->inner->extensionLoaded($extension);
-    }
-
-    #[Override]
     public function filesystem(string $handle): ?FsInterface
     {
         return $this->inner->filesystem($handle);
@@ -39,6 +33,12 @@ final readonly class SitelessCraftEnvironment implements CraftEnvironmentInterfa
     public function findAsset(string $uid): ?Asset
     {
         return $this->inner->findAsset($uid);
+    }
+
+    #[Override]
+    public function hasLibrary(string $name): bool
+    {
+        return $this->inner->hasLibrary($name);
     }
 
     #[Override]

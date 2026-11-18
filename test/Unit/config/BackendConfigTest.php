@@ -76,8 +76,8 @@ final class BackendConfigTest extends TestCase
     public function rejectsAnUnknownBackend(): void
     {
         $this->expectException(InvalidBackendException::class);
-        $this->expectExceptionMessage('“vips” isn\'t a backend.');
+        $this->expectExceptionMessage('“sharp” isn\'t a backend.');
 
-        BackendConfig::choice(['default' => 'vips']);
+        BackendConfig::choice(['default' => 'sharp']);
     }
 }

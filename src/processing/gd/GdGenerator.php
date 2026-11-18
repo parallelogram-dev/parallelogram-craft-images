@@ -8,6 +8,7 @@ use GdImage;
 use Override;
 use parallelogram\images\delivery\SourceFileInterface;
 use parallelogram\images\delivery\VariantGeneratorInterface;
+use parallelogram\images\processing\Backdrop;
 use parallelogram\images\processing\ResizePlan;
 use parallelogram\images\sizing\Format;
 use parallelogram\images\variants\Dimensions;

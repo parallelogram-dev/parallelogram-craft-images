@@ -77,7 +77,7 @@ final class BackendConfig
         return (
             BackendKind::tryFrom($value)
                 ?? throw new InvalidBackendException(
-                    "“{$value}” isn't a backend. Use auto, imagick, gd, imgproxy or cloudflare.",
+                    "“{$value}” isn't a backend. Use auto, vips, imagick, gd, imgproxy or cloudflare.",
                 )
         );
     }

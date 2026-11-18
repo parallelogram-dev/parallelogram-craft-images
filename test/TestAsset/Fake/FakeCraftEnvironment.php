@@ -36,12 +36,6 @@ final readonly class FakeCraftEnvironment implements CraftEnvironmentInterface
     ) {}
 
     #[Override]
-    public function extensionLoaded(string $extension): bool
-    {
-        return in_array($extension, $this->extensions, strict: true);
-    }
-
-    #[Override]
     public function filesystem(string $handle): ?FsInterface
     {
         return 'variants' === $handle ? $this->filesystem : null;
@@ -51,6 +45,12 @@ final readonly class FakeCraftEnvironment implements CraftEnvironmentInterface
     public function findAsset(string $uid): ?Asset
     {
         return $this->asset?->uid === $uid ? $this->asset : null;
+    }
+
+    #[Override]
+    public function hasLibrary(string $name): bool
+    {
+        return in_array($name, $this->extensions, strict: true);
     }
 
     #[Override]

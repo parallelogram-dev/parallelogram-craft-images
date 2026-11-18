@@ -124,7 +124,7 @@ final class SettingsTest extends TestCase
                 'variantPrefix',
                 'can\'t be used as a variant prefix',
             ],
-            'unknown backend'    => [['backends' => ['default' => 'vips']], 'backends', '“vips” isn\'t a backend.'],
+            'unknown backend'    => [['backends' => ['default' => 'sharp']], 'backends', '“sharp” isn\'t a backend.'],
             'imgproxy without url'    => [
                 ['backends' => ['default' => 'imgproxy', 'imgproxyKey' => '$K', 'imgproxySalt' => '$S']],
                 'backends',

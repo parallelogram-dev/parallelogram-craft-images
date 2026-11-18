@@ -25,6 +25,7 @@ use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\models\Settings;
 use parallelogram\images\processing\gd\GdGenerator;
 use parallelogram\images\processing\ImagickGenerator;
+use parallelogram\images\processing\vips\VipsGenerator;
 use parallelogram\images\sizing\Encoding;
 use parallelogram\images\sizing\Fit;
 use parallelogram\images\sizing\Format;
@@ -81,6 +82,7 @@ use yii\mutex\Mutex;
 #[UsesClass(VariantPath::class)]
 #[UsesClass(VariantPlanner::class)]
 #[UsesClass(VariantRequestHandler::class)]
+#[UsesClass(VipsGenerator::class)]
 #[UsesClass(VolumeRoutingGenerator::class)]
 #[Group('unit')]
 final class DeliveryFactoryTest extends TestCase
@@ -100,7 +102,7 @@ final class DeliveryFactoryTest extends TestCase
             'no secret'          => [$configured, []],
             'unsafe prefix'      => [['variantPrefix' => '../x'] + $configured, $secret],
             'invalid size set'   => [['sizeSets' => ['card' => ['widths' => []]]] + $configured, $secret],
-            'unknown backend'    => [['backends' => ['default' => 'vips']] + $configured, $secret],
+            'unknown backend'    => [['backends' => ['default' => 'sharp']] + $configured, $secret],
         ];
     }
 

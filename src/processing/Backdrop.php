@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace parallelogram\images\processing\gd;
+namespace parallelogram\images\processing;
 
 /**
  * What shows through where an image has no pixels: padding, or transparent
  * areas once flattened.
  *
- * @internal
+ * @api
  */
 enum Backdrop
 {

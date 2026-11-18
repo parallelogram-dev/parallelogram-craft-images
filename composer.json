@@ -3,7 +3,13 @@
     "description": "Responsive image variants for Craft CMS: named size sets, pre-generated AVIF and JPEG files, and <picture> markup for native or ParallelogramJS lazy loading.",
     "type": "craft-plugin",
     "license": "proprietary",
-    "keywords": ["craftcms", "images", "responsive", "avif", "srcset"],
+    "keywords": [
+        "craftcms",
+        "images",
+        "responsive",
+        "avif",
+        "srcset"
+    ],
     "authors": [
         {
             "name": "Parallelogram",
@@ -23,6 +29,7 @@
     },
     "require-dev": {
         "carthage-software/mago": "^1.59",
+        "jcupitt/vips": "^2.4",
         "phpunit/phpunit": "^12.0"
     },
     "autoload": {
@@ -74,5 +81,10 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "suggest": {
+        "jcupitt/vips": "Fastest local generation, through PHP FFI and libvips (8.7 or later).",
+        "ext-imagick": "Local generation with ImageMagick.",
+        "ext-gd": "Local generation with GD where ImageMagick is unavailable."
+    }
 }

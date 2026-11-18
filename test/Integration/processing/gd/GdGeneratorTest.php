@@ -6,7 +6,7 @@ namespace parallelogram\images\test\Integration\processing\gd;
 
 use GdImage;
 use parallelogram\images\delivery\GenerationFailedException;
-use parallelogram\images\processing\gd\Backdrop;
+use parallelogram\images\processing\Backdrop;
 use parallelogram\images\processing\gd\GdCanvas;
 use parallelogram\images\processing\gd\GdEncoder;
 use parallelogram\images\processing\gd\GdGenerator;

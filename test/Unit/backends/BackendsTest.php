@@ -30,6 +30,8 @@ final class BackendsTest extends TestCase
     public static function availabilityProvider(): array
     {
         return [
+            'auto with vips'       => [BackendKind::Auto, ['vips', 'imagick', 'gd'], BackendKind::Vips],
+            'vips missing'         => [BackendKind::Vips, ['imagick'], null],
             'auto with imagick'    => [BackendKind::Auto, ['imagick', 'gd'], BackendKind::Imagick],
             'auto with only gd'    => [BackendKind::Auto, ['gd'], BackendKind::Gd],
             'auto with neither'    => [BackendKind::Auto, [], null],
@@ -43,13 +45,14 @@ final class BackendsTest extends TestCase
     public function knowsWhichBackendsAreRemote(): void
     {
         static::assertSame(
-            [false, true, false, false, true],
+            [false, true, false, false, true, false],
             [
                 BackendKind::Auto->isRemote(),
                 BackendKind::Cloudflare->isRemote(),
                 BackendKind::Gd->isRemote(),
                 BackendKind::Imagick->isRemote(),
                 BackendKind::Imgproxy->isRemote(),
+                BackendKind::Vips->isRemote(),
             ],
         );
     }

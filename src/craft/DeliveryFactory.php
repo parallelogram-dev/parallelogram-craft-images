@@ -14,6 +14,7 @@ use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\models\Settings;
 use parallelogram\images\processing\gd\GdGenerator;
 use parallelogram\images\processing\ImagickGenerator;
+use parallelogram\images\processing\vips\VipsGenerator;
 use parallelogram\images\sizing\InvalidSizeSetException;
 use parallelogram\images\variants\InvalidVariantException;
 use parallelogram\images\variants\Processing;
@@ -75,8 +76,9 @@ final readonly class DeliveryFactory
 
         return new VolumeRoutingGenerator(
             BackendConfig::choice($settings->backends),
-            new BackendAvailability($this->environment->extensionLoaded(...)),
+            new BackendAvailability($this->environment->hasLibrary(...)),
             [
+                BackendKind::Vips->value    => new VipsGenerator($files, $processing),
                 BackendKind::Imagick->value => new ImagickGenerator($files, $processing),
                 BackendKind::Gd->value      => new GdGenerator($files, $processing),
             ],

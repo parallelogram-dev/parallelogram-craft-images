@@ -10,6 +10,7 @@ use craft\elements\Asset;
 use craft\helpers\App;
 use craft\helpers\UrlHelper;
 use Override;
+use parallelogram\images\processing\vips\VipsProbe;
 use yii\base\Exception;
 use yii\mutex\Mutex;
 
@@ -29,12 +30,6 @@ final class LiveCraftEnvironment implements CraftEnvironmentInterface
     }
 
     #[Override]
-    public function extensionLoaded(string $extension): bool
-    {
-        return '' !== $extension && extension_loaded($extension);
-    }
-
-    #[Override]
     public function filesystem(string $handle): ?FsInterface
     {
         return Craft::$app->getFs()->getFilesystemByHandle((string) App::parseEnv($handle));
@@ -44,6 +39,19 @@ final class LiveCraftEnvironment implements CraftEnvironmentInterface
     public function findAsset(string $uid): ?Asset
     {
         return self::asAsset(Asset::find()->uid($uid)->one());
+    }
+
+    /**
+     * Imagick and GD are PHP extensions; libvips is checked by {@see VipsProbe}.
+     */
+    #[Override]
+    public function hasLibrary(string $name): bool
+    {
+        if ('vips' === $name) {
+            return VipsProbe::forThisServer()->available();
+        }
+
+        return '' !== $name && extension_loaded($name);
     }
 
     #[Override]

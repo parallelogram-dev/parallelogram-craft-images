@@ -63,6 +63,18 @@ final class ImageFactory
     }
 
     /**
+     * A fully transparent PNG.
+     */
+    public static function transparentPng(int $width, int $height): string
+    {
+        $image = new Imagick();
+        $image->newImage($width, $height, new ImagickPixel('transparent'));
+        $image->setImageFormat('png');
+
+        return $image->getImageBlob();
+    }
+
+    /**
      * A red JPEG carrying an ICC profile.
      */
     public static function withIccProfile(string $profile): string

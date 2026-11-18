@@ -6,6 +6,7 @@ namespace parallelogram\images\processing\gd;
 
 use GdImage;
 use parallelogram\images\delivery\GenerationFailedException;
+use parallelogram\images\processing\Backdrop;
 use parallelogram\images\processing\ResizePlan;
 use parallelogram\images\variants\Dimensions;
 

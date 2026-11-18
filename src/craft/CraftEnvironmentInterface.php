@@ -17,11 +17,14 @@ use yii\mutex\Mutex;
  */
 interface CraftEnvironmentInterface
 {
-    public function extensionLoaded(string $extension): bool;
-
     public function filesystem(string $handle): ?FsInterface;
 
     public function findAsset(string $uid): ?Asset;
+
+    /**
+     * Whether an image library can be used: `vips`, `imagick` or `gd`.
+     */
+    public function hasLibrary(string $name): bool;
 
     public function mutex(): Mutex;
 

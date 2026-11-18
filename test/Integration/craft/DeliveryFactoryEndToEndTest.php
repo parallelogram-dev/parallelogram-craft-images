@@ -32,6 +32,7 @@ use parallelogram\images\processing\gd\GdGenerator;
 use parallelogram\images\processing\ImagickGenerator;
 use parallelogram\images\processing\Rect;
 use parallelogram\images\processing\ResizePlan;
+use parallelogram\images\processing\vips\VipsGenerator;
 use parallelogram\images\sizing\Box;
 use parallelogram\images\sizing\Encoding;
 use parallelogram\images\sizing\Fit;
@@ -107,6 +108,7 @@ use function array_key_exists;
 #[UsesClass(VariantPath::class)]
 #[UsesClass(VariantPlanner::class)]
 #[UsesClass(VariantRequestHandler::class)]
+#[UsesClass(VipsGenerator::class)]
 #[UsesClass(VolumeRoutingGenerator::class)]
 #[Group('integration')]
 final class DeliveryFactoryEndToEndTest extends TestCase
