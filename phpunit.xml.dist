@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
+         bootstrap="test/bootstrap.php"
          cacheDirectory=".phpunit.cache"
          colors="true"
+         executionOrder="random"
          failOnRisky="true"
          failOnWarning="true"
-         beStrictAboutOutputDuringTests="true">
+         failOnDeprecation="true"
+         failOnPhpunitDeprecation="true"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutCoverageMetadata="true"
+         requireCoverageMetadata="true">
     <testsuites>
         <testsuite name="unit">
-            <directory>tests/Unit</directory>
+            <directory>test/Unit</directory>
         </testsuite>
     </testsuites>
     <source>

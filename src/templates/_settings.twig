@@ -1,13 +1,13 @@
 {% import "_includes/forms" as forms %}
 
 <div class="btngroup iv-tabs">
-    <button type="button" class="btn iv-tab sel" data-pane="assignments">{{ 'Field assignments'|t('image-variants') }}</button>
-    <button type="button" class="btn iv-tab" data-pane="matrices">{{ 'Variant matrices'|t('image-variants') }}</button>
-    <button type="button" class="btn iv-tab" data-pane="other">{{ 'Other settings'|t('image-variants') }}</button>
+    <button type="button" class="btn iv-tab sel" data-pane="assignments">{{ 'Field assignments'|t('p-images') }}</button>
+    <button type="button" class="btn iv-tab" data-pane="matrices">{{ 'Variant matrices'|t('p-images') }}</button>
+    <button type="button" class="btn iv-tab" data-pane="other">{{ 'Other settings'|t('p-images') }}</button>
 </div>
 
 <div class="iv-pane" data-pane="assignments">
-    <p class="instructions">{{ 'Choose which matrices each Asset field can use. Click a field to add one, or click the × on a tag to remove it. When a template renders an image it picks one of the matrices listed here.'|t('image-variants') }}</p>
+    <p class="instructions">{{ 'Choose which matrices each Asset field can use. Click a field to add one, or click the × on a tag to remove it. When a template renders an image it picks one of the matrices listed here.'|t('p-images') }}</p>
 
     {% set matrixOptions = [] %}
     {% for handle in matrixHandles %}
@@ -26,7 +26,7 @@
             values: settings.fieldAssignments[field.handle] ?? []
         }) }}
     {% else %}
-        <p class="light">{{ 'No Asset fields found.'|t('image-variants') }}</p>
+        <p class="light">{{ 'No Asset fields found.'|t('p-images') }}</p>
     {% endfor %}
 
     {% if settings.getErrors('fieldAssignments') %}
@@ -38,19 +38,19 @@
 
 <div class="iv-pane hidden" data-pane="matrices">
     {{ forms.editableTableField({
-        label: 'Variant matrices'|t('image-variants'),
-        instructions: 'Each row is a named matrix. Tick the formats to generate. Dimensions are comma-separated: a width (`960`), a width×height pair that crops to the row’s Mode (`800x600`), or a height-only value (`x600`).'|t('image-variants'),
+        label: 'Variant matrices'|t('p-images'),
+        instructions: 'Each row is a named matrix. Tick the formats to generate. Dimensions are comma-separated: a width (`960`), a width×height pair that crops to the row’s Mode (`800x600`), or a height-only value (`x600`).'|t('p-images'),
         id: 'matrixRows',
         name: 'matrixRows',
         cols: {
-            handle: { type: 'singleline', heading: 'Handle'|t('image-variants'), width: '12%', placeholder: 'card' },
-            sizes: { type: 'singleline', heading: 'Sizes'|t('image-variants'), placeholder: '100vw' },
-            dimensions: { type: 'singleline', heading: 'Dimensions'|t('image-variants'), placeholder: '480, 800x600, x960' },
-            avif: { type: 'checkbox', heading: 'AVIF'|t('image-variants') },
-            webp: { type: 'checkbox', heading: 'WebP'|t('image-variants') },
-            jpg: { type: 'checkbox', heading: 'JPG'|t('image-variants') },
-            png: { type: 'checkbox', heading: 'PNG'|t('image-variants') },
-            mode: { type: 'select', heading: 'Mode'|t('image-variants'), width: '12%', options: [
+            handle: { type: 'singleline', heading: 'Handle'|t('p-images'), width: '12%', placeholder: 'card' },
+            sizes: { type: 'singleline', heading: 'Sizes'|t('p-images'), placeholder: '100vw' },
+            dimensions: { type: 'singleline', heading: 'Dimensions'|t('p-images'), placeholder: '480, 800x600, x960' },
+            avif: { type: 'checkbox', heading: 'AVIF'|t('p-images') },
+            webp: { type: 'checkbox', heading: 'WebP'|t('p-images') },
+            jpg: { type: 'checkbox', heading: 'JPG'|t('p-images') },
+            png: { type: 'checkbox', heading: 'PNG'|t('p-images') },
+            mode: { type: 'select', heading: 'Mode'|t('p-images'), width: '12%', options: [
                 { label: 'Crop', value: 'crop' },
                 { label: 'Fit', value: 'fit' },
                 { label: 'Stretch', value: 'stretch' },
@@ -58,7 +58,7 @@
             ] }
         },
         rows: settings.matrixRowsForDisplay,
-        addRowLabel: 'Add a matrix'|t('image-variants'),
+        addRowLabel: 'Add a matrix'|t('p-images'),
         allowAdd: true,
         allowDelete: true,
         errors: settings.getErrors('matrices')
@@ -66,8 +66,8 @@
 </div>
 
 <div class="iv-pane hidden" data-pane="other">
-    <h2>{{ 'Format quality'|t('image-variants') }}</h2>
-    <p class="instructions">{{ 'Encoder quality per format (1–100), applied to every matrix. The same number means different things per format — AVIF and WebP reach comparable quality at far lower values than JPG.'|t('image-variants') }}</p>
+    <h2>{{ 'Format quality'|t('p-images') }}</h2>
+    <p class="instructions">{{ 'Encoder quality per format (1–100), applied to every matrix. The same number means different things per format — AVIF and WebP reach comparable quality at far lower values than JPG.'|t('p-images') }}</p>
 
     <div class="flex">
         {% for format, quality in settings.formatQuality %}
@@ -91,10 +91,10 @@
 
     <hr>
 
-    <h2>{{ 'Performance'|t('image-variants') }}</h2>
+    <h2>{{ 'Performance'|t('p-images') }}</h2>
     {{ forms.textField({
-        label: 'ImageMagick thread limit'|t('image-variants'),
-        instructions: 'Threads each encode may use (OpenMP). 0 leaves ImageMagick’s own default. Higher speeds AVIF on multi-core servers — keep it a few below your core count. One process either way (no extra processes spawned).'|t('image-variants'),
+        label: 'ImageMagick thread limit'|t('p-images'),
+        instructions: 'Threads each encode may use (OpenMP). 0 leaves ImageMagick’s own default. Higher speeds AVIF on multi-core servers — keep it a few below your core count. One process either way (no extra processes spawned).'|t('p-images'),
         id: 'threadLimit',
         name: 'threadLimit',
         value: settings.threadLimit,
@@ -106,8 +106,8 @@
     }) }}
 
     {{ forms.lightswitchField({
-        label: 'Fast generation pipeline'|t('image-variants'),
-        instructions: 'Decode each source once and resize every output from it, instead of one Craft transform per output. Much faster when warming. Any geometry it cannot handle falls back to Craft automatically.'|t('image-variants'),
+        label: 'Fast generation pipeline'|t('p-images'),
+        instructions: 'Decode each source once and resize every output from it, instead of one Craft transform per output. Much faster when warming. Any geometry it cannot handle falls back to Craft automatically.'|t('p-images'),
         id: 'fastGenerate',
         name: 'fastGenerate',
         on: settings.fastGenerate,
@@ -115,8 +115,8 @@
     }) }}
 
     {{ forms.lightswitchField({
-        label: 'Convert to sRGB'|t('image-variants'),
-        instructions: 'Convert each source to the sRGB colour profile before resizing, so wide-gamut originals render predictably on the web. Applies to the fast pipeline only.'|t('image-variants'),
+        label: 'Convert to sRGB'|t('p-images'),
+        instructions: 'Convert each source to the sRGB colour profile before resizing, so wide-gamut originals render predictably on the web. Applies to the fast pipeline only.'|t('p-images'),
         id: 'convertToSrgb',
         name: 'convertToSrgb',
         on: settings.convertToSrgb,
@@ -124,8 +124,8 @@
     }) }}
 
     {{ forms.textField({
-        label: 'Sharpen amount'|t('image-variants'),
-        instructions: 'Unsharp-mask strength applied once per resized size (0 disables). A gentle value (≈0.5) recovers the softness a downscale introduces without haloing. Fast pipeline only.'|t('image-variants'),
+        label: 'Sharpen amount'|t('p-images'),
+        instructions: 'Unsharp-mask strength applied once per resized size (0 disables). A gentle value (≈0.5) recovers the softness a downscale introduces without haloing. Fast pipeline only.'|t('p-images'),
         id: 'sharpenAmount',
         name: 'sharpenAmount',
         value: settings.sharpenAmount,

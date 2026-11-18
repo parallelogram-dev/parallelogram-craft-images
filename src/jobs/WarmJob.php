@@ -1,11 +1,11 @@
 <?php
 
-namespace parallelogram\imagevariants\jobs;
+namespace parallelogram\images\jobs;
 
 use Craft;
 use craft\elements\Asset;
 use craft\queue\BaseJob;
-use parallelogram\imagevariants\Plugin;
+use parallelogram\images\Plugin;
 
 /**
  * Deliberate, controlled warm as a queue job — so the CP shows native progress
@@ -23,22 +23,24 @@ class WarmJob extends BaseJob
     public function execute($queue): void
     {
         $warmer = Plugin::getInstance()->warmer;
-        $plan = $warmer->plan($this->field, $this->matrix, $this->volume);
+        $plan   = $warmer->plan($this->field, $this->matrix, $this->volume);
 
-        if ($plan === []) {
+        if ([] === $plan) {
             return;
         }
 
         $scope = ['field' => $this->field, 'matrix' => $this->matrix, 'volume' => $this->volume];
 
-        $warmer->warm($plan, $scope, function(int $processed, int $total, ?Asset $asset, int $made) use ($queue): void {
+        $warmer->warm($plan, $scope, function (int $processed, int $total, ?Asset $asset, int $made) use (
+            $queue,
+        ): void {
             $this->setProgress(
                 $queue,
                 $processed / $total,
-                Craft::t('image-variants', '{processed} of {total}', [
+                Craft::t('p-images', '{processed} of {total}', [
                     'processed' => $processed,
-                    'total' => $total,
-                ])
+                    'total'     => $total,
+                ]),
             );
         });
     }
@@ -47,7 +49,9 @@ class WarmJob extends BaseJob
     {
         $scope = array_filter([$this->matrix, $this->field, $this->volume]);
 
-        return Craft::t('image-variants', 'Warming image variants') .
-            ($scope !== [] ? ' (' . implode(' / ', $scope) . ')' : '');
+        return (
+            Craft::t('p-images', 'Warming image variants')
+                . ([] !== $scope ? ' (' . implode(' / ', $scope) . ')' : '')
+        );
     }
 }

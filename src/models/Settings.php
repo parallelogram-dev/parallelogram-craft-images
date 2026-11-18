@@ -1,13 +1,13 @@
 <?php
 
-namespace parallelogram\imagevariants\models;
+namespace parallelogram\images\models;
 
 use craft\base\Model;
 
 /**
  * Plugin settings: the variant-matrix catalogue, per-format encoder quality, and
  * the field→matrix assignments. Persisted to Project Config and overridable by
- * config/image-variants.php.
+ * config/p-images.php.
  *
  * The canonical store is {@see $matrices} (a handle-keyed map). The CP edits it
  * through the flat {@see $matrixRows} representation (one row per matrix, formats
@@ -18,7 +18,7 @@ use craft\base\Model;
 class Settings extends Model
 {
     public const ALLOWED_FORMATS = ['avif', 'webp', 'jpg', 'png'];
-    public const ALLOWED_MODES = ['crop', 'fit', 'stretch', 'letterbox'];
+    public const ALLOWED_MODES   = ['crop', 'fit', 'stretch', 'letterbox'];
 
     /**
      * Cascading defaults applied to any matrix that does not override them.
@@ -26,10 +26,10 @@ class Settings extends Model
      * @var array<string, mixed>
      */
     public array $defaults = [
-        'formats' => ['avif', 'webp', 'jpg'],
-        'mode' => 'crop',
+        'formats'        => ['avif', 'webp', 'jpg'],
+        'mode'           => 'crop',
         'fallbackFormat' => 'jpg',
-        'fallbackMime' => 'image/jpeg',
+        'fallbackMime'   => 'image/jpeg',
     ];
 
     /**
@@ -66,8 +66,8 @@ class Settings extends Model
     public array $formatQuality = [
         'avif' => 60,
         'webp' => 80,
-        'jpg' => 82,
-        'png' => 80,
+        'jpg'  => 82,
+        'png'  => 80,
     ];
 
     /**
@@ -103,155 +103,6 @@ class Settings extends Model
      */
     public array $fieldAssignmentInput = [];
 
-    public function init(): void
-    {
-        parent::init();
-
-        if ($this->matrices === []) {
-            $this->matrices = self::seedMatrices();
-        }
-
-        if ($this->fieldAssignments === []) {
-            $this->fieldAssignments = self::seedFieldAssignments();
-        }
-    }
-
-    public function rules(): array
-    {
-        return [
-            [['defaults', 'matrices', 'fieldAssignments', 'matrixRows', 'fieldAssignmentInput', 'formatQuality'], 'safe'],
-            ['matrices', 'validateMatrices'],
-            ['fieldAssignments', 'validateAssignments'],
-            ['formatQuality', 'validateFormatQuality'],
-            ['threadLimit', 'integer', 'min' => 0, 'max' => 64],
-            [['fastGenerate', 'convertToSrgb'], 'boolean'],
-            ['sharpenAmount', 'number', 'min' => 0, 'max' => 5],
-        ];
-    }
-
-    /**
-     * Keep the transient editableTable payload out of Project Config.
-     */
-    public function fields(): array
-    {
-        $fields = parent::fields();
-        unset($fields['matrixRows'], $fields['fieldAssignmentInput']);
-
-        return $fields;
-    }
-
-    /**
-     * @param array<int, string> $fields
-     * @param array<int, string> $expand
-     * @return array<string, mixed>
-     */
-    public function toArray(array $fields = [], array $expand = [], $recursive = true): array
-    {
-        if ($fields !== []) {
-            $fields = array_merge(
-                array_diff($fields, ['matrixRows', 'fieldAssignmentInput']),
-                ['matrices', 'fieldAssignments'],
-            );
-        }
-
-        return parent::toArray($fields, $expand, $recursive);
-    }
-
-    public function beforeValidate(): bool
-    {
-        if ($this->matrixRows !== []) {
-            $this->matrices = self::matricesFromRows($this->matrixRows);
-        }
-
-        if (isset($this->fieldAssignmentInput['__submitted'])) {
-            $this->fieldAssignments = self::assignmentsFromInput($this->fieldAssignmentInput);
-        }
-
-        $this->fieldAssignments = self::pruneAssignments($this->fieldAssignments, $this->matrices);
-
-        $this->formatQuality = array_map(static fn($q) => (int)$q, $this->formatQuality);
-
-        return parent::beforeValidate();
-    }
-
-    /**
-     * Validate the converted matrices. Errors are attached to `matrices`.
-     */
-    public function validateMatrices(): void
-    {
-        if ($this->matrixRows !== []) {
-            $handles = array_filter(array_map(
-                static fn($row) => trim((string)($row['handle'] ?? '')),
-                $this->matrixRows
-            ));
-
-            if (count($handles) !== count(array_unique($handles))) {
-                $this->addError('matrices', 'Matrix handles must be unique.');
-            }
-        }
-
-        foreach ($this->matrices as $handle => $matrix) {
-            if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_-]*$/', (string)$handle)) {
-                $this->addError('matrices', "Invalid matrix handle “{$handle}”.");
-            }
-
-            if (trim((string)($matrix['sizes'] ?? '')) === '') {
-                $this->addError('matrices', "Matrix “{$handle}” needs a sizes value.");
-            }
-
-            if (empty($matrix['variants'])) {
-                $this->addError('matrices', "Matrix “{$handle}” needs at least one width.");
-            }
-
-            $formats = $matrix['formats'] ?? [];
-            if ($formats === []) {
-                $this->addError('matrices', "Matrix “{$handle}” needs at least one format ticked.");
-            }
-
-            foreach ($formats as $format) {
-                if (!in_array($format, self::ALLOWED_FORMATS, true)) {
-                    $this->addError('matrices', "Matrix “{$handle}” has an unknown format “{$format}”.");
-                }
-            }
-
-            $mode = $matrix['mode'] ?? $this->defaults['mode'];
-            if (!in_array($mode, self::ALLOWED_MODES, true)) {
-                $this->addError('matrices', "Matrix “{$handle}” has an unknown mode “{$mode}”.");
-            }
-        }
-    }
-
-    /**
-     * Validate per-format quality values.
-     */
-    public function validateFormatQuality(): void
-    {
-        foreach ($this->formatQuality as $format => $quality) {
-            if (!in_array($format, self::ALLOWED_FORMATS, true)) {
-                $this->addError('formatQuality', "Unknown format “{$format}”.");
-                continue;
-            }
-
-            if (!is_int($quality) || $quality < 1 || $quality > 100) {
-                $this->addError('formatQuality', ucfirst($format) . ' quality must be between 1 and 100.');
-            }
-        }
-    }
-
-    /**
-     * Every assigned matrix handle must exist.
-     */
-    public function validateAssignments(): void
-    {
-        foreach ($this->fieldAssignments as $field => $handles) {
-            foreach ((array)$handles as $handle) {
-                if (!isset($this->matrices[$handle])) {
-                    $this->addError('fieldAssignments', "Field “{$field}” references unknown matrix “{$handle}”.");
-                }
-            }
-        }
-    }
-
     /**
      * Rebuild the canonical field→matrices map from the posted CP payload.
      * Fields with nothing ticked are dropped.
@@ -267,43 +118,16 @@ class Settings extends Model
 
         foreach ($input as $field => $handles) {
             $handles = array_values(array_filter(
-                array_map('strval', (array)$handles),
-                static fn($handle) => $handle !== ''
+                array_map('strval', (array) $handles),
+                static fn($handle) => '' !== $handle,
             ));
 
-            if ($handles !== []) {
+            if ([] !== $handles) {
                 $assignments[$field] = $handles;
             }
         }
 
         return $assignments;
-    }
-
-    /**
-     * Drop assigned handles whose matrix no longer exists, and any field left
-     * with none, so deleting a matrix cleans up its references instead of
-     * blocking the save.
-     *
-     * @param array<string, string[]> $assignments
-     * @param array<string, array<string, mixed>> $matrices
-     * @return array<string, string[]>
-     */
-    private static function pruneAssignments(array $assignments, array $matrices): array
-    {
-        $pruned = [];
-
-        foreach ($assignments as $field => $handles) {
-            $valid = array_values(array_filter(
-                $handles,
-                static fn(string $handle) => isset($matrices[$handle])
-            ));
-
-            if ($valid !== []) {
-                $pruned[$field] = $valid;
-            }
-        }
-
-        return $pruned;
     }
 
     /**
@@ -319,24 +143,24 @@ class Settings extends Model
         $matrices = [];
 
         foreach ($rows as $row) {
-            $handle = trim((string)($row['handle'] ?? ''));
-            if ($handle === '') {
+            $handle = trim((string) ($row['handle'] ?? ''));
+            if ('' === $handle) {
                 continue;
             }
 
             $formats = array_values(array_filter(
                 self::ALLOWED_FORMATS,
-                static fn($format) => !empty($row[$format])
+                static fn($format) => ! empty($row[$format]),
             ));
 
             $matrix = [
-                'sizes' => trim((string)($row['sizes'] ?? '')),
-                'variants' => self::parseDimensions((string)($row['dimensions'] ?? '')),
-                'formats' => $formats,
+                'sizes'    => trim((string) ($row['sizes'] ?? '')),
+                'variants' => self::parseDimensions((string) ($row['dimensions'] ?? '')),
+                'formats'  => $formats,
             ];
 
-            if (!empty($row['mode'])) {
-                $matrix['mode'] = (string)$row['mode'];
+            if (! empty($row['mode'])) {
+                $matrix['mode'] = (string) $row['mode'];
             }
 
             $matrices[$handle] = $matrix;
@@ -361,13 +185,13 @@ class Settings extends Model
 
         foreach (explode(',', $value) as $token) {
             $token = strtolower(trim(str_replace('×', 'x', $token)));
-            if ($token === '') {
+            if ('' === $token) {
                 continue;
             }
 
             [$w, $h] = array_pad(explode('x', $token, 2), 2, '');
-            $width = (int)trim($w);
-            $height = (int)trim($h);
+            $width  = (int) trim($w);
+            $height = (int) trim($h);
 
             $variant = [];
             if ($width > 0) {
@@ -377,12 +201,66 @@ class Settings extends Model
                 $variant['height'] = $height;
             }
 
-            if ($variant !== []) {
+            if ([] !== $variant) {
                 $variants[] = $variant;
             }
         }
 
         return $variants;
+    }
+
+    /**
+     * @return array<string, string[]>
+     */
+    public static function seedFieldAssignments(): array
+    {
+        return [
+            'productImage'   => ['full'],
+            'material'       => ['swatch'],
+            'preview'        => ['card', 'compact', 'tile', 'swatch'],
+            'image'          => ['compact', 'full', 'contained'],
+            'articleImage'   => ['full', 'swatch'],
+            'articlePreview' => ['compact'],
+        ];
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    public static function seedMatrices(): array
+    {
+        $formats = ['avif', 'webp', 'jpg'];
+
+        $widths = static fn(array $px) => array_map(static fn($w) => ['width' => $w], $px);
+
+        return [
+            'full'      => [
+                'sizes'    => '100vw',
+                'formats'  => $formats,
+                'variants' => $widths([640, 960, 1280, 1600, 1920, 2560]),
+            ],
+            'contained' => [
+                'sizes'    => '(min-width: 908px) 900px, 100vw',
+                'formats'  => $formats,
+                'variants' => $widths([480, 720, 960, 1280, 1600, 1920]),
+            ],
+            'card'      => [
+                'sizes'    => '(min-width: 1350px) 25vw, (min-width: 908px) 33vw, 50vw',
+                'formats'  => $formats,
+                'variants' => $widths([260, 360, 480, 640, 820, 960]),
+            ],
+            'tile'      => [
+                'sizes'    => '(min-width: 908px) 50vw, 100vw',
+                'formats'  => $formats,
+                'variants' => $widths([480, 680, 900, 1200, 1600]),
+            ],
+            'compact'   => [
+                'sizes'    => '(min-width: 1350px) 16vw, (min-width: 908px) 25vw, 50vw',
+                'formats'  => $formats,
+                'variants' => $widths([180, 260, 360, 480, 640]),
+            ],
+            'swatch'    => ['sizes' => '6rem', 'formats' => $formats, 'variants' => $widths([96, 160, 224])],
+        ];
     }
 
     /**
@@ -392,20 +270,88 @@ class Settings extends Model
      */
     private static function dimensionToken(array $variant): string
     {
-        $width = $variant['width'] ?? null;
+        $width  = $variant['width'] ?? null;
         $height = $variant['height'] ?? null;
 
         if ($width && $height) {
             return $width . 'x' . $height;
         }
         if ($width) {
-            return (string)$width;
+            return (string) $width;
         }
         if ($height) {
             return 'x' . $height;
         }
 
         return '';
+    }
+
+    /**
+     * Drop assigned handles whose matrix no longer exists, and any field left
+     * with none, so deleting a matrix cleans up its references instead of
+     * blocking the save.
+     *
+     * @param array<string, string[]> $assignments
+     * @param array<string, array<string, mixed>> $matrices
+     * @return array<string, string[]>
+     */
+    private static function pruneAssignments(array $assignments, array $matrices): array
+    {
+        $pruned = [];
+
+        foreach ($assignments as $field => $handles) {
+            $valid = array_values(array_filter(
+                $handles,
+                static fn(string $handle) => isset($matrices[$handle]),
+            ));
+
+            if ([] !== $valid) {
+                $pruned[$field] = $valid;
+            }
+        }
+
+        return $pruned;
+    }
+
+    public function beforeValidate(): bool
+    {
+        if ([] !== $this->matrixRows) {
+            $this->matrices = self::matricesFromRows($this->matrixRows);
+        }
+
+        if (isset($this->fieldAssignmentInput['__submitted'])) {
+            $this->fieldAssignments = self::assignmentsFromInput($this->fieldAssignmentInput);
+        }
+
+        $this->fieldAssignments = self::pruneAssignments($this->fieldAssignments, $this->matrices);
+
+        $this->formatQuality = array_map(static fn($q) => (int) $q, $this->formatQuality);
+
+        return parent::beforeValidate();
+    }
+
+    /**
+     * Keep the transient editableTable payload out of Project Config.
+     */
+    public function fields(): array
+    {
+        $fields = parent::fields();
+        unset($fields['matrixRows'], $fields['fieldAssignmentInput']);
+
+        return $fields;
+    }
+
+    public function init(): void
+    {
+        parent::init();
+
+        if ([] === $this->matrices) {
+            $this->matrices = self::seedMatrices();
+        }
+
+        if ([] === $this->fieldAssignments) {
+            $this->fieldAssignments = self::seedFieldAssignments();
+        }
     }
 
     /**
@@ -421,13 +367,16 @@ class Settings extends Model
             $enabled = $matrix['formats'] ?? $this->defaults['formats'] ?? [];
 
             $row = [
-                'handle' => $handle,
-                'sizes' => $matrix['sizes'] ?? '',
-                'dimensions' => implode(', ', array_filter(array_map(
-                    static fn($variant) => self::dimensionToken($variant),
-                    $matrix['variants'] ?? []
-                ))),
-                'mode' => $matrix['mode'] ?? $this->defaults['mode'] ?? 'crop',
+                'handle'     => $handle,
+                'sizes'      => $matrix['sizes'] ?? '',
+                'dimensions' => implode(
+                    ', ',
+                    array_filter(array_map(
+                        static fn($variant) => self::dimensionToken($variant),
+                        $matrix['variants'] ?? [],
+                    )),
+                ),
+                'mode'       => $matrix['mode'] ?? $this->defaults['mode'] ?? 'crop',
             ];
 
             foreach (self::ALLOWED_FORMATS as $format) {
@@ -448,40 +397,117 @@ class Settings extends Model
      */
     public function matrixRowsForDisplay(): array
     {
-        return $this->matrixRows !== [] ? $this->matrixRows : $this->matricesToRows();
+        return [] !== $this->matrixRows ? $this->matrixRows : $this->matricesToRows();
     }
 
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    public static function seedMatrices(): array
+    public function rules(): array
     {
-        $formats = ['avif', 'webp', 'jpg'];
-
-        $widths = static fn(array $px) => array_map(static fn($w) => ['width' => $w], $px);
-
         return [
-            'full' => ['sizes' => '100vw', 'formats' => $formats, 'variants' => $widths([640, 960, 1280, 1600, 1920, 2560])],
-            'contained' => ['sizes' => '(min-width: 908px) 900px, 100vw', 'formats' => $formats, 'variants' => $widths([480, 720, 960, 1280, 1600, 1920])],
-            'card' => ['sizes' => '(min-width: 1350px) 25vw, (min-width: 908px) 33vw, 50vw', 'formats' => $formats, 'variants' => $widths([260, 360, 480, 640, 820, 960])],
-            'tile' => ['sizes' => '(min-width: 908px) 50vw, 100vw', 'formats' => $formats, 'variants' => $widths([480, 680, 900, 1200, 1600])],
-            'compact' => ['sizes' => '(min-width: 1350px) 16vw, (min-width: 908px) 25vw, 50vw', 'formats' => $formats, 'variants' => $widths([180, 260, 360, 480, 640])],
-            'swatch' => ['sizes' => '6rem', 'formats' => $formats, 'variants' => $widths([96, 160, 224])],
+            [
+                ['defaults', 'matrices', 'fieldAssignments', 'matrixRows', 'fieldAssignmentInput', 'formatQuality'],
+                'safe',
+            ],
+            ['matrices', 'validateMatrices'],
+            ['fieldAssignments', 'validateAssignments'],
+            ['formatQuality', 'validateFormatQuality'],
+            ['threadLimit', 'integer', 'min' => 0, 'max' => 64],
+            [['fastGenerate', 'convertToSrgb'], 'boolean'],
+            ['sharpenAmount', 'number', 'min' => 0, 'max' => 5],
         ];
     }
 
     /**
-     * @return array<string, string[]>
+     * @param array<int, string> $fields
+     * @param array<int, string> $expand
+     * @return array<string, mixed>
      */
-    public static function seedFieldAssignments(): array
+    public function toArray(array $fields = [], array $expand = [], $recursive = true): array
     {
-        return [
-            'productImage' => ['full'],
-            'material' => ['swatch'],
-            'preview' => ['card', 'compact', 'tile', 'swatch'],
-            'image' => ['compact', 'full', 'contained'],
-            'articleImage' => ['full', 'swatch'],
-            'articlePreview' => ['compact'],
-        ];
+        if ([] !== $fields) {
+            $fields = array_merge(
+                array_diff($fields, ['matrixRows', 'fieldAssignmentInput']),
+                ['matrices', 'fieldAssignments'],
+            );
+        }
+
+        return parent::toArray($fields, $expand, $recursive);
+    }
+
+    /**
+     * Every assigned matrix handle must exist.
+     */
+    public function validateAssignments(): void
+    {
+        foreach ($this->fieldAssignments as $field => $handles) {
+            foreach ((array) $handles as $handle) {
+                if (! isset($this->matrices[$handle])) {
+                    $this->addError('fieldAssignments', "Field “{$field}” references unknown matrix “{$handle}”.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Validate per-format quality values.
+     */
+    public function validateFormatQuality(): void
+    {
+        foreach ($this->formatQuality as $format => $quality) {
+            if (! in_array($format, self::ALLOWED_FORMATS, true)) {
+                $this->addError('formatQuality', "Unknown format “{$format}”.");
+                continue;
+            }
+
+            if (! is_int($quality) || $quality < 1 || $quality > 100) {
+                $this->addError('formatQuality', ucfirst($format) . ' quality must be between 1 and 100.');
+            }
+        }
+    }
+
+    /**
+     * Validate the converted matrices. Errors are attached to `matrices`.
+     */
+    public function validateMatrices(): void
+    {
+        if ([] !== $this->matrixRows) {
+            $handles = array_filter(array_map(
+                static fn($row) => trim((string) ($row['handle'] ?? '')),
+                $this->matrixRows,
+            ));
+
+            if (count($handles) !== count(array_unique($handles))) {
+                $this->addError('matrices', 'Matrix handles must be unique.');
+            }
+        }
+
+        foreach ($this->matrices as $handle => $matrix) {
+            if (! preg_match('/^[a-zA-Z][a-zA-Z0-9_-]*$/', (string) $handle)) {
+                $this->addError('matrices', "Invalid matrix handle “{$handle}”.");
+            }
+
+            if (trim((string) ($matrix['sizes'] ?? '')) === '') {
+                $this->addError('matrices', "Matrix “{$handle}” needs a sizes value.");
+            }
+
+            if (empty($matrix['variants'])) {
+                $this->addError('matrices', "Matrix “{$handle}” needs at least one width.");
+            }
+
+            $formats = $matrix['formats'] ?? [];
+            if ([] === $formats) {
+                $this->addError('matrices', "Matrix “{$handle}” needs at least one format ticked.");
+            }
+
+            foreach ($formats as $format) {
+                if (! in_array($format, self::ALLOWED_FORMATS, true)) {
+                    $this->addError('matrices', "Matrix “{$handle}” has an unknown format “{$format}”.");
+                }
+            }
+
+            $mode = $matrix['mode'] ?? $this->defaults['mode'];
+            if (! in_array($mode, self::ALLOWED_MODES, true)) {
+                $this->addError('matrices', "Matrix “{$handle}” has an unknown mode “{$mode}”.");
+            }
+        }
     }
 }

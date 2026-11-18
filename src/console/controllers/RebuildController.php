@@ -1,9 +1,9 @@
 <?php
 
-namespace parallelogram\imagevariants\console\controllers;
+namespace parallelogram\images\console\controllers;
 
 use craft\elements\Asset;
-use parallelogram\imagevariants\Plugin;
+use parallelogram\images\Plugin;
 use yii\console\Controller;
 use yii\console\ExitCode;
 use yii\helpers\Console;
@@ -13,8 +13,8 @@ use yii\helpers\Console;
  * for when a transform was written corrupt/truncated and idempotent warming
  * would otherwise skip it.
  *
- *   php craft image-variants/rebuild --asset=13244
- *   php craft image-variants/rebuild --volume=product
+ *   php craft p-images/rebuild --asset=13244
+ *   php craft p-images/rebuild --volume=product
  */
 class RebuildController extends Controller
 {
@@ -26,18 +26,13 @@ class RebuildController extends Controller
     /** @var string|null Rebuild every image in this volume. */
     public ?string $volume = null;
 
-    public function options($actionID): array
-    {
-        return array_merge(parent::options($actionID), ['asset', 'volume']);
-    }
-
     public function actionIndex(): int
     {
         $warmer = Plugin::getInstance()->warmer;
 
-        if ($this->asset !== null) {
+        if (null !== $this->asset) {
             $asset = Asset::find()->id($this->asset)->kind('image')->one();
-            if ($asset === null) {
+            if (null === $asset) {
                 $this->stderr("No image asset with id {$this->asset}.\n", Console::FG_RED);
                 return ExitCode::UNSPECIFIED_ERROR;
             }
@@ -47,10 +42,10 @@ class RebuildController extends Controller
             return ExitCode::OK;
         }
 
-        if ($this->volume !== null) {
-            $ids = Asset::find()->volume($this->volume)->kind('image')->ids();
+        if (null !== $this->volume) {
+            $ids   = Asset::find()->volume($this->volume)->kind('image')->ids();
             $total = count($ids);
-            if ($total === 0) {
+            if (0 === $total) {
                 $this->stdout("No image assets in volume “{$this->volume}”.\n");
                 return ExitCode::OK;
             }
@@ -73,5 +68,10 @@ class RebuildController extends Controller
 
         $this->stderr("Specify --asset=<id> or --volume=<handle>.\n", Console::FG_RED);
         return ExitCode::UNSPECIFIED_ERROR;
+    }
+
+    public function options($actionID): array
+    {
+        return array_merge(parent::options($actionID), ['asset', 'volume']);
     }
 }

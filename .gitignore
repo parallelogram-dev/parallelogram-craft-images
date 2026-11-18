@@ -1,4 +1,6 @@
 /vendor/
-/composer.lock
 /.phpunit.cache/
-/.phpcs-cache
+/coverage/
+/coverage.xml
+.DS_Store
+/src/web/assets/*/dist/.cache

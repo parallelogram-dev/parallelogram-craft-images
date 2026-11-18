@@ -1,12 +1,12 @@
 <?php
 
-namespace parallelogram\imagevariants\web\twig;
+namespace parallelogram\images\web\twig;
 
-use parallelogram\imagevariants\models\VariantSet;
-use parallelogram\imagevariants\Plugin;
+use parallelogram\images\models\VariantSet;
+use parallelogram\images\Plugin;
 
 /**
- * The `craft.imageVariants` Twig variable.
+ * The `craft.pImages` Twig variable.
  */
 class VariantsVariable
 {

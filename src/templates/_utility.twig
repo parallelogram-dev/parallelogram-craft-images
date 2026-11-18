@@ -4,12 +4,12 @@
     <span class="iv-warm-cell" data-field="{{ field }}" data-matrix="{{ matrix }}">
         <form method="post" accept-charset="UTF-8">
             {{ csrfInput() }}
-            {{ actionInput('image-variants/warm/queue') }}
-            {{ redirectInput('utilities/image-variants-warm') }}
+            {{ actionInput('p-images/warm/queue') }}
+            {{ redirectInput('utilities/p-images-warm') }}
             {% if field %}{{ hiddenInput('field', field) }}{% endif %}
             {% if matrix %}{{ hiddenInput('matrix', matrix) }}{% endif %}
             <button type="submit" class="btn {{ submit ? 'submit' : 'small' }}{{ active ? ' disabled' : '' }}" {{ active ? 'disabled' : '' }}>
-                <span class="iv-warm-label">{{ active ? 'Rebuilding…'|t('image-variants') : label }}</span>
+                <span class="iv-warm-label">{{ active ? 'Rebuilding…'|t('p-images') : label }}</span>
                 <span class="iv-warm-spinner spinner{{ active ? '' : ' hidden' }}"></span>
             </button>
         </form>
@@ -17,23 +17,23 @@
 {% endmacro %}
 
 {% macro covBadge(cov) %}
-    {% if cov is null %}<span class="iv-cov light">{{ 'not audited'|t('image-variants') }}</span>
+    {% if cov is null %}<span class="iv-cov light">{{ 'not audited'|t('p-images') }}</span>
     {% elseif cov.missing == 0 %}<span class="iv-cov iv-cov-ok">&check; {{ cov.covered }}/{{ cov.assets }}</span>
-    {% else %}<span class="iv-cov iv-cov-warn">{{ cov.covered }}/{{ cov.assets }} &middot; {{ cov.missing }} {{ 'missing'|t('image-variants') }}</span>
+    {% else %}<span class="iv-cov iv-cov-warn">{{ cov.covered }}/{{ cov.assets }} &middot; {{ cov.missing }} {{ 'missing'|t('p-images') }}</span>
     {% endif %}
 {% endmacro %}
 
 {% from _self import warmButton, covBadge %}
 
-<p class="instructions">{{ 'Each image needs a few different sizes so your pages load quickly. Use “Audit coverage” to see which images are ready and which still need sizes made — it only checks and never changes your images. If any are missing, Rebuild creates them. You only need to rebuild when something is missing.'|t('image-variants') }}</p>
+<p class="instructions">{{ 'Each image needs a few different sizes so your pages load quickly. Use “Audit coverage” to see which images are ready and which still need sizes made — it only checks and never changes your images. If any are missing, Rebuild creates them. You only need to rebuild when something is missing.'|t('p-images') }}</p>
 
 <div class="iv-toolbar">
     <form method="post" accept-charset="UTF-8" class="iv-inline">
         {{ csrfInput() }}
-        {{ actionInput('image-variants/warm/audit') }}
-        {{ redirectInput('utilities/image-variants-warm') }}
+        {{ actionInput('p-images/warm/audit') }}
+        {{ redirectInput('utilities/p-images-warm') }}
         <button type="submit" id="iv-audit-btn" class="btn{{ anyAuditing ? ' disabled' : '' }}" {{ anyAuditing ? 'disabled' : '' }}>
-            <span class="iv-audit-label">{{ anyAuditing ? 'Auditing…'|t('image-variants') : 'Audit coverage'|t('image-variants') }}</span>
+            <span class="iv-audit-label">{{ anyAuditing ? 'Auditing…'|t('p-images') : 'Audit coverage'|t('p-images') }}</span>
             <span class="iv-audit-spinner spinner{{ anyAuditing ? '' : ' hidden' }}"></span>
         </button>
     </form>
@@ -44,19 +44,19 @@
     <div id="iv-warm-active" class="iv-warm-active"></div>
     <form id="iv-warm-stop" method="post" accept-charset="UTF-8" class="hidden">
         {{ csrfInput() }}
-        {{ actionInput('image-variants/warm/stop') }}
-        {{ redirectInput('utilities/image-variants-warm') }}
-        <button type="submit" class="btn caution small">{{ 'Stop'|t('image-variants') }}</button>
+        {{ actionInput('p-images/warm/stop') }}
+        {{ redirectInput('utilities/p-images-warm') }}
+        <button type="submit" class="btn caution small">{{ 'Stop'|t('p-images') }}</button>
     </form>
 </div>
 
 <table class="data fullwidth">
     <thead>
         <tr>
-            <th>{{ 'Field'|t('image-variants') }}</th>
-            <th>{{ 'Matrix'|t('image-variants') }}</th>
-            <th>{{ 'Assets'|t('image-variants') }}</th>
-            <th>{{ 'Coverage'|t('image-variants') }}</th>
+            <th>{{ 'Field'|t('p-images') }}</th>
+            <th>{{ 'Matrix'|t('p-images') }}</th>
+            <th>{{ 'Assets'|t('p-images') }}</th>
+            <th>{{ 'Coverage'|t('p-images') }}</th>
             <th></th>
         </tr>
     </thead>
@@ -67,15 +67,15 @@
                 <td><code>{{ row.matrix }}</code></td>
                 <td>{{ row.count }}</td>
                 <td class="iv-cov-cell" data-matrix="{{ row.matrix }}">{{ covBadge(row.coverage) }}</td>
-                <td class="thin">{{ warmButton('Rebuild'|t('image-variants'), row.field, row.matrix, row.active, false) }}</td>
+                <td class="thin">{{ warmButton('Rebuild'|t('p-images'), row.field, row.matrix, row.active, false) }}</td>
             </tr>
         {% else %}
-            <tr><td colspan="5">{{ 'No field assignments yet.'|t('image-variants') }}</td></tr>
+            <tr><td colspan="5">{{ 'No field assignments yet.'|t('p-images') }}</td></tr>
         {% endfor %}
     </tbody>
 </table>
 
-<p class="buttons">{{ warmButton('Rebuild everything'|t('image-variants'), '', '', anyActive, true) }}</p>
+<p class="buttons">{{ warmButton('Rebuild everything'|t('p-images'), '', '', anyActive, true) }}</p>
 
 {% css %}
 .iv-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
@@ -94,7 +94,7 @@
 {% js %}
 (function () {
   try {
-    var statusUrl = Craft.getActionUrl('image-variants/warm/status');
+    var statusUrl = Craft.getActionUrl('p-images/warm/status');
     var cells = Array.prototype.slice.call(document.querySelectorAll('.iv-warm-cell'));
     var panel = document.getElementById('iv-warm-active');
     var stopForm = document.getElementById('iv-warm-stop');
@@ -120,7 +120,7 @@
             var spinner = cell.querySelector('.iv-warm-spinner');
             btn.disabled = on;
             btn.classList.toggle('disabled', on);
-            if (label) { label.textContent = on ? Craft.t('image-variants', 'Rebuilding…') : btn.getAttribute('data-label'); }
+            if (label) { label.textContent = on ? Craft.t('p-images', 'Rebuilding…') : btn.getAttribute('data-label'); }
             if (spinner) { spinner.classList.toggle('hidden', !on); }
         });
 
@@ -129,7 +129,7 @@
             auditBtn.disabled = auditing;
             auditBtn.classList.toggle('disabled', auditing);
             var al = auditBtn.querySelector('.iv-audit-label');
-            if (al) { al.textContent = auditing ? Craft.t('image-variants', 'Auditing…') : Craft.t('image-variants', 'Audit coverage'); }
+            if (al) { al.textContent = auditing ? Craft.t('p-images', 'Auditing…') : Craft.t('p-images', 'Audit coverage'); }
             var as = auditBtn.querySelector('.iv-audit-spinner');
             if (as) { as.classList.toggle('hidden', !auditing); }
         }
@@ -139,19 +139,19 @@
         var html = active.map(function (s) {
             var total = s.total || 0, processed = s.processed || 0;
             var pct = total ? Math.round(processed / total * 100) : 0;
-            var verb = (s.kind || 'warm') === 'audit' ? Craft.t('image-variants', 'Auditing') : Craft.t('image-variants', 'Rebuilding');
+            var verb = (s.kind || 'warm') === 'audit' ? Craft.t('p-images', 'Auditing') : Craft.t('p-images', 'Rebuilding');
             var label = verb + ' ' + (s.field || 'all fields') + ' / ' + (s.matrix || 'all matrices');
             var age = now - (s.updatedAt || now);
-            var stale = age > 30 ? ' <span class="error">(' + Craft.t('image-variants', 'no update for {n}s', { n: age }) + ')</span>' : '';
+            var stale = age > 30 ? ' <span class="error">(' + Craft.t('p-images', 'no update for {n}s', { n: age }) + ')</span>' : '';
             return '<div class="iv-warm-row"><strong>' + label + '</strong> — ' + processed + ' / ' + total + ' (' + pct + '%)' + stale +
                 '<div class="iv-warm-bar"><div class="iv-warm-bar-fill" style="width:' + pct + '%"></div></div></div>';
         });
 
         var queued = [];
-        if (pending.audit > 0) { queued.push(pending.audit + ' ' + Craft.t('image-variants', 'audit')); }
-        if (pending.warm > 0) { queued.push(pending.warm + ' ' + Craft.t('image-variants', 'rebuild')); }
+        if (pending.audit > 0) { queued.push(pending.audit + ' ' + Craft.t('p-images', 'audit')); }
+        if (pending.warm > 0) { queued.push(pending.warm + ' ' + Craft.t('p-images', 'rebuild')); }
         if (queued.length) {
-            html.push('<p class="light">' + Craft.t('image-variants', 'Queued: {list} job(s) — waiting for the queue to run.', { list: queued.join(', ') }) + '</p>');
+            html.push('<p class="light">' + Craft.t('p-images', 'Queued: {list} job(s) — waiting for the queue to run.', { list: queued.join(', ') }) + '</p>');
         }
 
         panel.innerHTML = html.join('');
@@ -162,18 +162,18 @@
     function renderCoverage(coverage, auditedAt, now) {
         document.querySelectorAll('.iv-cov-cell').forEach(function (cell) {
             var cov = coverage[cell.getAttribute('data-matrix')];
-            if (!cov) { cell.innerHTML = '<span class="iv-cov light">' + Craft.t('image-variants', 'not audited') + '</span>'; return; }
+            if (!cov) { cell.innerHTML = '<span class="iv-cov light">' + Craft.t('p-images', 'not audited') + '</span>'; return; }
             if (cov.missing === 0) {
                 cell.innerHTML = '<span class="iv-cov iv-cov-ok">✓ ' + cov.covered + '/' + cov.assets + '</span>';
             } else {
-                cell.innerHTML = '<span class="iv-cov iv-cov-warn">' + cov.covered + '/' + cov.assets + ' · ' + cov.missing + ' ' + Craft.t('image-variants', 'missing') + '</span>';
+                cell.innerHTML = '<span class="iv-cov iv-cov-warn">' + cov.covered + '/' + cov.assets + ' · ' + cov.missing + ' ' + Craft.t('p-images', 'missing') + '</span>';
             }
         });
         if (auditedAt) {
             var ago = now - auditedAt;
-            auditedEl.textContent = Craft.t('image-variants', 'Last audited {n}s ago', { n: ago });
+            auditedEl.textContent = Craft.t('p-images', 'Last audited {n}s ago', { n: ago });
         } else {
-            auditedEl.textContent = Craft.t('image-variants', 'Not audited yet');
+            auditedEl.textContent = Craft.t('p-images', 'Not audited yet');
         }
     }
 
@@ -186,7 +186,7 @@
         form.addEventListener('submit', function () {
             btn.disabled = true;
             btn.classList.add('disabled');
-            if (label) { label.textContent = Craft.t('image-variants', 'Rebuilding…'); }
+            if (label) { label.textContent = Craft.t('p-images', 'Rebuilding…'); }
             var sp = cell.querySelector('.iv-warm-spinner');
             if (sp) { sp.classList.remove('hidden'); }
         });
@@ -208,7 +208,7 @@
     setInterval(poll, 5000);
     poll();
   } catch (e) {
-    if (window.console && window.console.error) { window.console.error('Image Variants utility JS:', e); }
+    if (window.console && window.console.error) { window.console.error('Parallelogram Images utility JS:', e); }
   }
 })();
 {% endjs %}

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace parallelogram\imagevariants\services;
+namespace parallelogram\images\services;
 
 use craft\elements\Asset;
 use craft\helpers\Assets as AssetsHelper;
@@ -29,28 +29,27 @@ class VariantRelocator
         private readonly Generator $generator,
         private readonly Warmer $warmer,
         private readonly AssetsService $assets,
-    ) {
-    }
+    ) {}
 
     /**
      * Returns the number of variant files copied to the asset's pending new location.
      */
     public function copyToNewLocation(Asset $asset, bool $isNew): int
     {
-        if ($isNew || $asset->id === null || $asset->kind !== Asset::KIND_IMAGE || $asset->newLocation === null) {
+        if ($isNew || null === $asset->id || Asset::KIND_IMAGE !== $asset->kind || null === $asset->newLocation) {
             return 0;
         }
 
         [$folderId, $filename] = AssetsHelper::parseFileLocation($asset->newLocation);
-        $folder                = $this->assets->getFolderById($folderId);
+        $folder = $this->assets->getFolderById($folderId);
 
-        if ($folder === null || $folder->volumeId !== $asset->getVolumeId()) {
+        if (null === $folder || $folder->volumeId !== $asset->getVolumeId()) {
             return 0;
         }
 
         $matrixHandles = $this->warmer->matrixHandlesForVolume($asset);
 
-        if ($matrixHandles === []) {
+        if ([] === $matrixHandles) {
             return 0;
         }
 
@@ -87,7 +86,7 @@ class VariantRelocator
      */
     public function finishRelocation(Asset $asset): array
     {
-        if ($asset->id === null || ! isset($this->pending[$asset->id])) {
+        if (null === $asset->id || ! isset($this->pending[$asset->id])) {
             return [];
         }
 

@@ -1,44 +1,78 @@
 {
-  "name": "parallelogram-dev/parallelogram-image-variants",
-  "description": "Parallelogram Image Variants — define, generate, and serve responsive image variants as pre-warmed static paths.",
-  "version": "0.1.0",
-  "type": "craft-plugin",
-  "license": "proprietary",
-  "require": {
-    "craftcms/cms": "^5.0.0"
-  },
-  "autoload": {
-    "psr-4": {
-      "parallelogram\\imagevariants\\": "src/"
-    }
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "parallelogram\\imagevariants\\test\\": "tests/"
-    }
-  },
-  "scripts": {
-    "cs-check": "phpcs",
-    "cs-fix": "phpcbf",
-    "static-analysis": "phpstan analyse",
-    "test": "phpunit"
-  },
-  "extra": {
-    "handle": "image-variants",
-    "name": "Parallelogram Image Variants",
-    "developer": "Parallelogram",
-    "class": "parallelogram\\imagevariants\\Plugin"
-  },
-  "config": {
-    "allow-plugins": {
-      "craftcms/plugin-installer": true,
-      "yiisoft/yii2-composer": true,
-      "dealerdirect/phpcodesniffer-composer-installer": true
-    }
-  },
-  "require-dev": {
-    "phpunit/phpunit": "^11.5",
-    "phpstan/phpstan": "^2.1",
-    "laminas/laminas-coding-standard": "^3.0"
-  }
+    "name": "parallelogram/craft-images",
+    "description": "Responsive image variants for Craft CMS: named size sets, pre-generated AVIF and JPEG files, and <picture> markup for native or ParallelogramJS lazy loading.",
+    "type": "craft-plugin",
+    "license": "proprietary",
+    "keywords": ["craftcms", "images", "responsive", "avif", "srcset"],
+    "authors": [
+        {
+            "name": "Parallelogram",
+            "homepage": "https://parallelogram.com.au"
+        }
+    ],
+    "support": {
+        "email": "support@parallelogram.com.au",
+        "issues": "https://github.com/parallelogram-dev/parallelogram-craft-images/issues",
+        "source": "https://github.com/parallelogram-dev/parallelogram-craft-images",
+        "docs": "https://github.com/parallelogram-dev/parallelogram-craft-images#readme"
+    },
+    "require": {
+        "php": "^8.3",
+        "craftcms/cms": "^5.6",
+        "parallelogram/craft-kit": "^0.1 || *@dev"
+    },
+    "require-dev": {
+        "carthage-software/mago": "^1.59",
+        "phpunit/phpunit": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "parallelogram\\images\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "parallelogram\\images\\test\\": "test/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../parallelogram-craft-kit",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "extra": {
+        "handle": "p-images",
+        "name": "Parallelogram Images",
+        "developer": "Parallelogram",
+        "developerUrl": "https://parallelogram.com.au",
+        "documentationUrl": "https://github.com/parallelogram-dev/parallelogram-craft-images#readme",
+        "class": "parallelogram\\images\\Plugin"
+    },
+    "scripts": {
+        "lint": "mago lint",
+        "analyze": "mago analyze",
+        "fmt": "mago fmt",
+        "fmt-check": "mago fmt --check",
+        "test": "phpunit",
+        "check": [
+            "@fmt-check",
+            "@lint",
+            "@analyze",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "carthage-software/mago": true,
+            "craftcms/plugin-installer": true,
+            "yiisoft/yii2-composer": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

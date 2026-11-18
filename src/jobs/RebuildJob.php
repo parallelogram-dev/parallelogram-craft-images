@@ -1,11 +1,11 @@
 <?php
 
-namespace parallelogram\imagevariants\jobs;
+namespace parallelogram\images\jobs;
 
 use Craft;
 use craft\elements\Asset;
 use craft\queue\BaseJob;
-use parallelogram\imagevariants\Plugin;
+use parallelogram\images\Plugin;
 
 /**
  * Rebuild one asset's variants as a queue job — the asset edit screen's
@@ -28,6 +28,6 @@ class RebuildJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        return Craft::t('image-variants', 'Rebuilding image variants');
+        return Craft::t('p-images', 'Rebuilding image variants');
     }
 }

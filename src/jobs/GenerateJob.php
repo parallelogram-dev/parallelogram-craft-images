@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace parallelogram\imagevariants\jobs;
+namespace parallelogram\images\jobs;
 
 use Craft;
 use craft\elements\Asset;
 use craft\queue\BaseJob;
-use parallelogram\imagevariants\Plugin;
+use parallelogram\images\Plugin;
 
 /**
  * Generate an asset's missing variants after its file has moved.
@@ -35,6 +35,6 @@ class GenerateJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        return Craft::t('image-variants', 'Generating image variants');
+        return Craft::t('p-images', 'Generating image variants');
     }
 }

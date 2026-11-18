@@ -1,12 +1,12 @@
 <?php
 
-namespace parallelogram\imagevariants\services;
+namespace parallelogram\images\services;
 
 use Craft;
 use craft\elements\Asset;
 use craft\helpers\FileHelper;
 use Imagick;
-use parallelogram\imagevariants\Plugin;
+use parallelogram\images\Plugin;
 use Throwable;
 use yii\base\Component;
 
@@ -34,6 +34,58 @@ class Pipeline extends Component
     private const SRGB_PROFILE = __DIR__ . '/../resources/icc/sRGB-IEC61966-2.1.icc';
 
     /**
+     * Produce the fast-path output for a single transform as a blob, WITHOUT
+     * writing it anywhere. For the parity gate, which compares this against the
+     * file Craft's transformer produces for the same definition.
+     *
+     * @param array<string, mixed> $transform
+     */
+    public function previewBlob(Asset $asset, array $transform): ?string
+    {
+        $settings = Plugin::getInstance()->getSettings();
+        $local    = $asset->getCopyOfFile();
+        $source   = new Imagick();
+
+        try {
+            $source->readImage($local);
+
+            if ($settings->convertToSrgb) {
+                $this->toSrgb($source);
+            }
+
+            $resized = clone $source;
+            $this->applyGeometry(
+                $resized,
+                $transform,
+                $source->getImageWidth(),
+                $source->getImageHeight(),
+                Craft::$app->getConfig()->getGeneral()->upscaleImages,
+            );
+
+            $amount = (float) $settings->sharpenAmount;
+            if ($amount > 0) {
+                $resized->unsharpMaskImage(0, 0.7, $amount, 0);
+            }
+
+            $frame = $this->encodeFrame(
+                $resized,
+                (string) ($transform['format'] ?? 'jpg'),
+                (int) ($transform['quality'] ?? 80),
+            );
+            $blob = $frame->getImageBlob();
+            $frame->clear();
+            $resized->clear();
+
+            return $blob;
+        } finally {
+            $source->clear();
+            if (is_string($local) && is_file($local)) {
+                FileHelper::unlink($local);
+            }
+        }
+    }
+
+    /**
      * Generate every transform it can for one asset from a single decode.
      *
      * @param array<int, array<string, mixed>> $transforms expanded variant×format list
@@ -41,16 +93,16 @@ class Pipeline extends Component
      */
     public function process(Asset $asset, array $transforms): array
     {
-        if ($transforms === []) {
+        if ([] === $transforms) {
             return [];
         }
 
         $settings = Plugin::getInstance()->getSettings();
-        $paths = Plugin::getInstance()->paths;
+        $paths    = Plugin::getInstance()->paths;
 
         // Centre-crop only when the asset has no custom focal point; otherwise
         // defer crops to Craft, which crops around the focal point.
-        $allowCrop = !$asset->getHasFocalPoint();
+        $allowCrop = ! $asset->getHasFocalPoint();
 
         [$supported, $unhandled] = $this->partition($transforms, $allowCrop);
 
@@ -58,10 +110,10 @@ class Pipeline extends Component
         // are usable. rebuild() deletes first when a true refresh is wanted.
         $supported = array_values(array_filter(
             $supported,
-            static fn(array $transform): bool => !$paths->isUsable($asset, $transform)
+            static fn(array $transform): bool => ! $paths->isUsable($asset, $transform),
         ));
 
-        if ($supported === []) {
+        if ([] === $supported) {
             return $unhandled;
         }
 
@@ -81,7 +133,15 @@ class Pipeline extends Component
             foreach ($this->groupByGeometry($supported) as $group) {
                 $unhandled = array_merge(
                     $unhandled,
-                    $this->renderGeometry($asset, $source, $group, $sourceWidth, $sourceHeight, $upscale, (float)$settings->sharpenAmount)
+                    $this->renderGeometry(
+                        $asset,
+                        $source,
+                        $group,
+                        $sourceWidth,
+                        $sourceHeight,
+                        $upscale,
+                        (float) $settings->sharpenAmount,
+                    ),
                 );
             }
         } finally {
@@ -95,108 +155,31 @@ class Pipeline extends Component
     }
 
     /**
-     * Split transforms into those the fast path can produce and those it must
-     * defer to Craft. Handled: a proportional scale (width-only, height-only, or
-     * width+height "fit"), and — when $allowCrop — a width+height centre "crop".
-     * Deferred: stretch/letterbox, and crop when a focal point is in play.
-     *
-     * @param array<int, array<string, mixed>> $transforms
-     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
-     */
-    private function partition(array $transforms, bool $allowCrop): array
-    {
-        $supported = [];
-        $unhandled = [];
-
-        foreach ($transforms as $transform) {
-            $hasWidth = !empty($transform['width']);
-            $hasHeight = !empty($transform['height']);
-            $mode = $transform['mode'] ?? 'crop';
-
-            $isScale = ($hasWidth xor $hasHeight) || ($hasWidth && $hasHeight && $mode === 'fit');
-            $isCrop = $hasWidth && $hasHeight && $mode === 'crop' && $allowCrop;
-
-            if ($isScale || $isCrop) {
-                $supported[] = $transform;
-            } else {
-                $unhandled[] = $transform;
-            }
-        }
-
-        return [$supported, $unhandled];
-    }
-
-    /**
-     * Group supported transforms by their geometry, so a width shared across
-     * formats is resized once and encoded to each format from that single buffer.
-     *
-     * @param array<int, array<string, mixed>> $transforms
-     * @return array<string, array<int, array<string, mixed>>>
-     */
-    private function groupByGeometry(array $transforms): array
-    {
-        $groups = [];
-
-        foreach ($transforms as $transform) {
-            $key = ($transform['width'] ?? '') . 'x' . ($transform['height'] ?? '') . '/' . ($transform['mode'] ?? 'crop');
-            $groups[$key][] = $transform;
-        }
-
-        return $groups;
-    }
-
-    /**
-     * Resize the source to one geometry, sharpen once, then encode and write each
-     * format. Returns any transforms in the group it failed to write.
-     *
-     * @param array<int, array<string, mixed>> $group transforms sharing a geometry
-     * @return array<int, array<string, mixed>> failures to fall back on
-     */
-    private function renderGeometry(
-        Asset $asset,
-        Imagick $source,
-        array $group,
-        int $sourceWidth,
-        int $sourceHeight,
-        bool $upscale,
-        float $sharpenAmount
-    ): array {
-        $resized = clone $source;
-        try {
-            $this->applyGeometry($resized, $group[0], $sourceWidth, $sourceHeight, $upscale);
-
-            if ($sharpenAmount > 0) {
-                $resized->unsharpMaskImage(0, 0.7, $sharpenAmount, 0);
-            }
-
-            $failures = [];
-
-            foreach ($group as $transform) {
-                if (!$this->encodeAndWrite($asset, $resized, $transform)) {
-                    $failures[] = $transform;
-                }
-            }
-
-            return $failures;
-        } finally {
-            $resized->clear();
-        }
-    }
-
-    /**
      * Resize (and, for a width+height crop, centre-crop) the image in place to
      * the transform's geometry.
      *
      * @param array<string, mixed> $transform
      */
-    private function applyGeometry(Imagick $image, array $transform, int $sourceWidth, int $sourceHeight, bool $upscale): void
-    {
-        $hasWidth = !empty($transform['width']);
-        $hasHeight = !empty($transform['height']);
-        $mode = $transform['mode'] ?? 'crop';
+    private function applyGeometry(
+        Imagick $image,
+        array $transform,
+        int $sourceWidth,
+        int $sourceHeight,
+        bool $upscale,
+    ): void {
+        $hasWidth  = ! empty($transform['width']);
+        $hasHeight = ! empty($transform['height']);
+        $mode      = $transform['mode'] ?? 'crop';
 
-        if ($hasWidth && $hasHeight && $mode === 'crop') {
-            $this->coverCrop($image, (int)$transform['width'], (int)$transform['height'], $sourceWidth, $sourceHeight, $upscale);
+        if ($hasWidth && $hasHeight && 'crop' === $mode) {
+            $this->coverCrop(
+                $image,
+                (int) $transform['width'],
+                (int) $transform['height'],
+                $sourceWidth,
+                $sourceHeight,
+                $upscale,
+            );
             return;
         }
 
@@ -209,56 +192,32 @@ class Pipeline extends Component
      * Craft's center-center crop and CSS object-fit: cover. Honours
      * upscaleImages: when off, never enlarges past the source.
      */
-    private function coverCrop(Imagick $image, int $targetW, int $targetH, int $sourceWidth, int $sourceHeight, bool $upscale): void
-    {
+    private function coverCrop(
+        Imagick $image,
+        int $targetW,
+        int $targetH,
+        int $sourceWidth,
+        int $sourceHeight,
+        bool $upscale,
+    ): void {
         $scale = max($targetW / $sourceWidth, $targetH / $sourceHeight);
-        if (!$upscale) {
+        if (! $upscale) {
             $scale = min($scale, 1.0);
         }
 
-        $scaledW = max(1, (int)ceil($sourceWidth * $scale));
-        $scaledH = max(1, (int)ceil($sourceHeight * $scale));
+        $scaledW = max(1, (int) ceil($sourceWidth * $scale));
+        $scaledH = max(1, (int) ceil($sourceHeight * $scale));
         $image->resizeImage($scaledW, $scaledH, Imagick::FILTER_LANCZOS, 1);
 
         // With upscaling off, the source may not cover the box; clamp the crop
         // to what's available so it stays in bounds.
         $cropW = min($targetW, $scaledW);
         $cropH = min($targetH, $scaledH);
-        $x = (int)max(0, round(($scaledW - $cropW) / 2));
-        $y = (int)max(0, round(($scaledH - $cropH) / 2));
+        $x     = (int) max(0, round(($scaledW - $cropW) / 2));
+        $y     = (int) max(0, round(($scaledH - $cropH) / 2));
 
         $image->cropImage($cropW, $cropH, $x, $y);
         $image->setImagePage($cropW, $cropH, 0, 0);
-    }
-
-    /**
-     * The output pixel dimensions for a proportional scale, honouring
-     * upscaleImages (when off, never enlarge past the source).
-     *
-     * @param array<string, mixed> $transform
-     * @return array{0: int, 1: int}
-     */
-    private function targetDimensions(array $transform, int $sourceWidth, int $sourceHeight, bool $upscale): array
-    {
-        $width = !empty($transform['width']) ? (int)$transform['width'] : null;
-        $height = !empty($transform['height']) ? (int)$transform['height'] : null;
-
-        if ($width !== null && $height !== null) {
-            $scale = min($width / $sourceWidth, $height / $sourceHeight);
-        } elseif ($width !== null) {
-            $scale = $width / $sourceWidth;
-        } else {
-            $scale = $height / $sourceHeight;
-        }
-
-        if (!$upscale) {
-            $scale = min($scale, 1.0);
-        }
-
-        return [
-            max(1, (int)round($sourceWidth * $scale)),
-            max(1, (int)round($sourceHeight * $scale)),
-        ];
     }
 
     /**
@@ -270,7 +229,11 @@ class Pipeline extends Component
     private function encodeAndWrite(Asset $asset, Imagick $resized, array $transform): bool
     {
         try {
-            $frame = $this->encodeFrame($resized, (string)($transform['format'] ?? 'jpg'), (int)($transform['quality'] ?? 80));
+            $frame = $this->encodeFrame(
+                $resized,
+                (string) ($transform['format'] ?? 'jpg'),
+                (int) ($transform['quality'] ?? 80),
+            );
 
             try {
                 $uri = Plugin::getInstance()->paths->uriFor($asset, $transform);
@@ -283,12 +246,12 @@ class Pipeline extends Component
         } catch (Throwable $e) {
             Craft::warning(
                 sprintf(
-                    'Image Variants: fast encode failed for asset %d (%s): %s',
+                    'Parallelogram Images: fast encode failed for asset %d (%s): %s',
                     $asset->id,
                     json_encode($transform),
-                    $e->getMessage()
+                    $e->getMessage(),
                 ),
-                __METHOD__
+                __METHOD__,
             );
 
             return false;
@@ -310,7 +273,7 @@ class Pipeline extends Component
             $frame = $frame->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
         }
 
-        $frame->setImageFormat($format === 'jpg' ? 'jpeg' : $format);
+        $frame->setImageFormat('jpg' === $format ? 'jpeg' : $format);
         $frame->setImageCompressionQuality($quality);
         $frame->stripImage();
 
@@ -318,51 +281,123 @@ class Pipeline extends Component
     }
 
     /**
-     * Produce the fast-path output for a single transform as a blob, WITHOUT
-     * writing it anywhere. For the parity gate, which compares this against the
-     * file Craft's transformer produces for the same definition.
+     * Group supported transforms by their geometry, so a width shared across
+     * formats is resized once and encoded to each format from that single buffer.
      *
-     * @param array<string, mixed> $transform
+     * @param array<int, array<string, mixed>> $transforms
+     * @return array<string, array<int, array<string, mixed>>>
      */
-    public function previewBlob(Asset $asset, array $transform): ?string
+    private function groupByGeometry(array $transforms): array
     {
-        $settings = Plugin::getInstance()->getSettings();
-        $local = $asset->getCopyOfFile();
-        $source = new Imagick();
+        $groups = [];
 
-        try {
-            $source->readImage($local);
+        foreach ($transforms as $transform) {
+            $key =
+                ($transform['width'] ?? '') . 'x' . ($transform['height'] ?? '') . '/' . ($transform['mode'] ?? 'crop');
+            $groups[$key][] = $transform;
+        }
 
-            if ($settings->convertToSrgb) {
-                $this->toSrgb($source);
-            }
+        return $groups;
+    }
 
-            $resized = clone $source;
-            $this->applyGeometry(
-                $resized,
-                $transform,
-                $source->getImageWidth(),
-                $source->getImageHeight(),
-                Craft::$app->getConfig()->getGeneral()->upscaleImages
-            );
+    /**
+     * Split transforms into those the fast path can produce and those it must
+     * defer to Craft. Handled: a proportional scale (width-only, height-only, or
+     * width+height "fit"), and — when $allowCrop — a width+height centre "crop".
+     * Deferred: stretch/letterbox, and crop when a focal point is in play.
+     *
+     * @param array<int, array<string, mixed>> $transforms
+     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
+     */
+    private function partition(array $transforms, bool $allowCrop): array
+    {
+        $supported = [];
+        $unhandled = [];
 
-            $amount = (float)$settings->sharpenAmount;
-            if ($amount > 0) {
-                $resized->unsharpMaskImage(0, 0.7, $amount, 0);
-            }
+        foreach ($transforms as $transform) {
+            $hasWidth  = ! empty($transform['width']);
+            $hasHeight = ! empty($transform['height']);
+            $mode      = $transform['mode'] ?? 'crop';
 
-            $frame = $this->encodeFrame($resized, (string)($transform['format'] ?? 'jpg'), (int)($transform['quality'] ?? 80));
-            $blob = $frame->getImageBlob();
-            $frame->clear();
-            $resized->clear();
+            $isScale = ($hasWidth xor $hasHeight) || ($hasWidth && $hasHeight && 'fit' === $mode);
+            $isCrop  = $hasWidth && $hasHeight && 'crop' === $mode && $allowCrop;
 
-            return $blob;
-        } finally {
-            $source->clear();
-            if (is_string($local) && is_file($local)) {
-                FileHelper::unlink($local);
+            if ($isScale || $isCrop) {
+                $supported[] = $transform;
+            } else {
+                $unhandled[] = $transform;
             }
         }
+
+        return [$supported, $unhandled];
+    }
+
+    /**
+     * Resize the source to one geometry, sharpen once, then encode and write each
+     * format. Returns any transforms in the group it failed to write.
+     *
+     * @param array<int, array<string, mixed>> $group transforms sharing a geometry
+     * @return array<int, array<string, mixed>> failures to fall back on
+     */
+    private function renderGeometry(
+        Asset $asset,
+        Imagick $source,
+        array $group,
+        int $sourceWidth,
+        int $sourceHeight,
+        bool $upscale,
+        float $sharpenAmount,
+    ): array {
+        $resized = clone $source;
+        try {
+            $this->applyGeometry($resized, $group[0], $sourceWidth, $sourceHeight, $upscale);
+
+            if ($sharpenAmount > 0) {
+                $resized->unsharpMaskImage(0, 0.7, $sharpenAmount, 0);
+            }
+
+            $failures = [];
+
+            foreach ($group as $transform) {
+                if (! $this->encodeAndWrite($asset, $resized, $transform)) {
+                    $failures[] = $transform;
+                }
+            }
+
+            return $failures;
+        } finally {
+            $resized->clear();
+        }
+    }
+
+    /**
+     * The output pixel dimensions for a proportional scale, honouring
+     * upscaleImages (when off, never enlarge past the source).
+     *
+     * @param array<string, mixed> $transform
+     * @return array{0: int, 1: int}
+     */
+    private function targetDimensions(array $transform, int $sourceWidth, int $sourceHeight, bool $upscale): array
+    {
+        $width  = ! empty($transform['width']) ? (int) $transform['width'] : null;
+        $height = ! empty($transform['height']) ? (int) $transform['height'] : null;
+
+        if (null !== $width && null !== $height) {
+            $scale = min($width / $sourceWidth, $height / $sourceHeight);
+        } elseif (null !== $width) {
+            $scale = $width / $sourceWidth;
+        } else {
+            $scale = $height / $sourceHeight;
+        }
+
+        if (! $upscale) {
+            $scale = min($scale, 1.0);
+        }
+
+        return [
+            max(1, (int) round($sourceWidth * $scale)),
+            max(1, (int) round($sourceHeight * $scale)),
+        ];
     }
 
     /**
@@ -373,9 +408,9 @@ class Pipeline extends Component
     private function toSrgb(Imagick $image): void
     {
         $profiles = $image->getImageProfiles('icc', true);
-        $srgb = (string)file_get_contents(self::SRGB_PROFILE);
+        $srgb     = (string) file_get_contents(self::SRGB_PROFILE);
 
-        if (!empty($profiles['icc'])) {
+        if (! empty($profiles['icc'])) {
             $image->profileImage('icc', $srgb);
             return;
         }

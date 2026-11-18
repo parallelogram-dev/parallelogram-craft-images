@@ -1,6 +1,6 @@
 <?php
 
-namespace parallelogram\imagevariants\services;
+namespace parallelogram\images\services;
 
 use craft\elements\Asset;
 use craft\helpers\ImageTransforms;
@@ -20,22 +20,6 @@ use yii\base\Component;
 class PathBuilder extends Component
 {
     /**
-     * Final URL for a transform, or null if the volume's transform filesystem
-     * has no public URLs. Never generates, never queues.
-     *
-     * @param array<string, mixed>|ImageTransform $transform
-     */
-    public function urlFor(Asset $asset, array|ImageTransform $transform): ?string
-    {
-        $fs = $asset->getVolume()->getTransformFs();
-        if (!$fs->hasUrls) {
-            return null;
-        }
-
-        return rtrim((string)$fs->getRootUrl(), '/') . '/' . ltrim($this->uriFor($asset, $transform), '/');
-    }
-
-    /**
      * Whether the transform file already exists on disk.
      *
      * @param array<string, mixed>|ImageTransform $transform
@@ -54,10 +38,10 @@ class PathBuilder extends Component
      */
     public function isUsable(Asset $asset, array|ImageTransform $transform): bool
     {
-        $fs = $asset->getVolume()->getTransformFs();
+        $fs  = $asset->getVolume()->getTransformFs();
         $uri = $this->uriFor($asset, $transform);
 
-        if (!$fs->fileExists($uri)) {
+        if (! $fs->fileExists($uri)) {
             return false;
         }
 
@@ -73,33 +57,27 @@ class PathBuilder extends Component
     }
 
     /**
-     * The transform URI relative to the transform filesystem root.
-     *
-     * @param array<string, mixed>|ImageTransform $transform
-     */
-    public function uriFor(Asset $asset, array|ImageTransform $transform): string
-    {
-        return $this->uriAt($asset, $transform, (string)$asset->folderPath, $asset->getFilename());
-    }
-
-    /**
      * The transform URI the asset would have if its file lived at
      * $folderPath/$sourceFilename, so a pending move or rename can be mapped
      * before Craft relocates the file.
      *
      * @param array<string, mixed>|ImageTransform $transform
      */
-    public function uriAt(Asset $asset, array|ImageTransform $transform, string $folderPath, string $sourceFilename): string
-    {
+    public function uriAt(
+        Asset $asset,
+        array|ImageTransform $transform,
+        string $folderPath,
+        string $sourceFilename,
+    ): string {
         $imageTransform = $transform instanceof ImageTransform
             ? $transform
             : ImageTransforms::normalizeTransform($transform);
 
         $transformString = ImageTransforms::getTransformString($imageTransform);
 
-        $basename = pathinfo($sourceFilename, PATHINFO_FILENAME);
+        $basename  = pathinfo($sourceFilename, PATHINFO_FILENAME);
         $extension = $imageTransform->format ?: pathinfo($sourceFilename, PATHINFO_EXTENSION);
-        $filename = $basename . '.' . $extension;
+        $filename  = $basename . '.' . $extension;
 
         $subfolder = $transformString;
         if ($filename !== $sourceFilename) {
@@ -109,10 +87,36 @@ class PathBuilder extends Component
         return $this->basePath($asset, $folderPath) . $subfolder . '/' . $filename;
     }
 
+    /**
+     * The transform URI relative to the transform filesystem root.
+     *
+     * @param array<string, mixed>|ImageTransform $transform
+     */
+    public function uriFor(Asset $asset, array|ImageTransform $transform): string
+    {
+        return $this->uriAt($asset, $transform, (string) $asset->folderPath, $asset->getFilename());
+    }
+
+    /**
+     * Final URL for a transform, or null if the volume's transform filesystem
+     * has no public URLs. Never generates, never queues.
+     *
+     * @param array<string, mixed>|ImageTransform $transform
+     */
+    public function urlFor(Asset $asset, array|ImageTransform $transform): ?string
+    {
+        $fs = $asset->getVolume()->getTransformFs();
+        if (! $fs->hasUrls) {
+            return null;
+        }
+
+        return rtrim((string) $fs->getRootUrl(), '/') . '/' . ltrim($this->uriFor($asset, $transform), '/');
+    }
+
     private function basePath(Asset $asset, string $folderPath): string
     {
         $subpath = rtrim($asset->getVolume()->getTransformSubpath(), '/');
-        $base = ($subpath !== '' ? $subpath . '/' : '') . $folderPath;
+        $base    = ('' !== $subpath ? $subpath . '/' : '') . $folderPath;
 
         return str_replace('\\', '/', $base);
     }

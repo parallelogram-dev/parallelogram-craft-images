@@ -1,8 +1,0 @@
-parameters:
-    level: 8
-    paths:
-        - src
-        - tests
-    scanFiles:
-        - vendor/craftcms/cms/lib/yii2/Yii.php
-        - vendor/craftcms/cms/src/Craft.php

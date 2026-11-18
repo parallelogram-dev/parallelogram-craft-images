@@ -1,11 +1,11 @@
 <?php
 
-namespace parallelogram\imagevariants\controllers;
+namespace parallelogram\images\controllers;
 
 use Craft;
 use craft\elements\Asset;
 use craft\web\Controller;
-use parallelogram\imagevariants\jobs\RebuildJob;
+use parallelogram\images\jobs\RebuildJob;
 use yii\web\Response;
 
 /**
@@ -18,17 +18,17 @@ class RebuildController extends Controller
         $this->requirePostRequest();
         $this->requireAcceptsJson();
 
-        $assetId = (int)$this->request->getRequiredBodyParam('assetId');
-        $asset = Asset::find()->id($assetId)->kind('image')->one();
+        $assetId = (int) $this->request->getRequiredBodyParam('assetId');
+        $asset   = Asset::find()->id($assetId)->kind('image')->one();
 
-        if (!$asset instanceof Asset) {
-            return $this->asFailure(Craft::t('image-variants', 'Image not found.'));
+        if (! $asset instanceof Asset) {
+            return $this->asFailure(Craft::t('p-images', 'Image not found.'));
         }
 
         $this->requirePermission('saveAssets:' . $asset->getVolume()->uid);
 
         Craft::$app->getQueue()->push(new RebuildJob(['assetId' => $assetId]));
 
-        return $this->asSuccess(Craft::t('image-variants', 'Rebuild queued — variants will regenerate in the background.'));
+        return $this->asSuccess(Craft::t('p-images', 'Rebuild queued — variants will regenerate in the background.'));
     }
 }
