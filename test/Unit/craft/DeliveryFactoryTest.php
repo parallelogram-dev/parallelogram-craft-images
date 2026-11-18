@@ -33,6 +33,7 @@ use parallelogram\images\sizing\QualityTable;
 use parallelogram\images\sizing\SizeSet;
 use parallelogram\images\sizing\SizeSetCatalogue;
 use parallelogram\images\test\TestAsset\Fake\FakeCraftEnvironment;
+use parallelogram\images\test\TestAsset\Fake\SitelessCraftEnvironment;
 use parallelogram\images\variants\InvalidVariantException;
 use parallelogram\images\variants\Processing;
 use parallelogram\images\variants\VariantHasher;
@@ -123,6 +124,20 @@ final class DeliveryFactoryTest extends TestCase
     public function buildsNothingUntilVariantsAreFullyConfigured(array $config, array $env): void
     {
         static::assertNull($this->factory($env)->handler(new Settings($config)));
+    }
+
+    #[Test]
+    public function buildsNothingWithoutASite(): void
+    {
+        $factory = new DeliveryFactory(new SitelessCraftEnvironment(new FakeCraftEnvironment(
+            $this->createStub(FsInterface::class),
+            $this->createStub(Mutex::class),
+        )));
+
+        static::assertNull($factory->handler(new Settings([
+            'variantFilesystem' => 'variants',
+            'variantPrefix'     => 'asset/variant',
+        ])));
     }
 
     /**

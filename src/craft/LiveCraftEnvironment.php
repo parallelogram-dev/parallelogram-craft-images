@@ -11,7 +11,6 @@ use craft\helpers\App;
 use craft\helpers\UrlHelper;
 use Override;
 use yii\base\Exception;
-use yii\base\InvalidConfigException;
 use yii\mutex\Mutex;
 
 use function extension_loaded;
@@ -61,23 +60,20 @@ final class LiveCraftEnvironment implements CraftEnvironmentInterface
         return is_string($parsed) ? $parsed : '';
     }
 
+    /**
+     * @throws Exception When Craft has no site to take the URL from.
+     */
     #[Override]
     public function siteUrl(): string
     {
-        try {
-            return UrlHelper::siteUrl();
-        } catch (Exception) {
-            return '';
-        }
+        return UrlHelper::siteUrl();
     }
 
     #[Override]
     public function volumeOf(string $assetUid): ?string
     {
-        try {
-            return $this->findAsset($assetUid)?->getVolume()->uid;
-        } catch (InvalidConfigException) {
-            return null;
-        }
+        $volumeId = $this->findAsset($assetUid)?->volumeId;
+
+        return null === $volumeId ? null : Craft::$app->getVolumes()->getVolumeById($volumeId)?->uid;
     }
 }

@@ -27,7 +27,6 @@ sort-class-methods = true
 # list when it is reworked, made Mago-clean and fully tested. The list must be
 # empty before v1.
 excludes = [
-    "src/Plugin.php",
     "src/console/controllers/AuditController.php",
     "src/console/controllers/RebuildController.php",
     "src/console/controllers/WarmController.php",
@@ -119,8 +118,10 @@ invalid-open-tag = { level = "Help" }
 # visible to the analyser so reworked code can refer to them. Each leaves this
 # list with its linter entry; the list must be empty before v1.
 ignore = [
+    # PHPUnit bootstrap files and one test helper are glue that must touch
+    # superglobals such as $_SERVER, which this config treats as undefined.
+    { pattern = ".", in = ["test/bootstrap.php", "test/Craft/bootstrap.php", "test/TestAsset/EnvironmentVariables.php"] },
     { pattern = ".", in = [
-    "src/Plugin.php",
     "src/console/controllers/AuditController.php",
     "src/console/controllers/RebuildController.php",
     "src/console/controllers/WarmController.php",

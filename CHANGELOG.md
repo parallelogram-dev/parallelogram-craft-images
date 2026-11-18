@@ -15,6 +15,7 @@
 - Cloudflare Images transform-via-URL links. Cloudflare can't output PNG, may enlarge letterboxed or stretched images, and always pads with white.
 - Backend choice: site-wide (auto: ImageMagick, then GD; or imgproxy or Cloudflare) with per-volume overrides. The imgproxy key and salt must be environment variables.
 - The variant route: `{prefix}/…` requests the web server can't satisfy are answered by the plugin once a filesystem and prefix are chosen. A Delivery tab in the settings covers the filesystem, prefix, backends and service details.
+- A Craft integration suite (`phpunit.craft.xml`) that boots the sandbox site against its own test database.
 - `P_IMAGES_SECRET` is written to `.env` on install if it isn't already set.
 - `PrototypeConverter`, which turns the prototype's matrices and field-handle assignments into size sets and UID-keyed assignments, with notes on anything that couldn't carry over.
 
@@ -26,6 +27,7 @@
 - New installs start with no size sets; the prototype's seeded sets were specific to one site.
 
 ### Removed
+- The prototype's warm utility, rebuild action and asset-save hooks, until warming is rebuilt.
 - The bundled 1998 HP sRGB profile, replaced by the ICC's freely redistributable sRGB v4 preference profile (see THIRD-PARTY-NOTICES.md).
 - Moving variants when an asset is moved or renamed, which UID-based paths make unnecessary.
 - Writing variants into Craft's transform paths.

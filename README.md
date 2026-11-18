@@ -17,6 +17,18 @@ composer install
 composer check
 ```
 
+### Craft integration tests
+
+Tests that need a running Craft site live in `test/Craft` and run from the sandbox project, which requires this plugin through a path repository, against a separate `craft_images_test` database:
+
+```bash
+cd ../parallelogram-craft-sandbox
+bash vendor/parallelogram/craft-images/test/Craft/install-test-db.sh   # once
+vendor/bin/phpunit -c vendor/parallelogram/craft-images/phpunit.craft.xml
+```
+
+Each test runs in a rolled-back transaction, project config is never written back to the sandbox, and the test volume and variant folders are emptied afterwards.
+
 The files listed under `excludes` in `mago.toml` are prototype code that hasn't been reworked yet. A file comes off that list once it has been rebuilt, is Mago-clean and has full test coverage. The list must be empty before v1.
 
 ## Licence

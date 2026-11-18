@@ -8,7 +8,6 @@ use craft\web\Controller;
 use parallelogram\images\craft\DeliveryResponder;
 use parallelogram\images\delivery\Delivery;
 use parallelogram\images\Plugin;
-use yii\base\InvalidConfigException;
 use yii\web\Response;
 
 /**
@@ -20,16 +19,16 @@ final class VariantsController extends Controller
 {
     protected array|bool|int $allowAnonymous = ['serve' => self::ALLOW_ANONYMOUS_LIVE | self::ALLOW_ANONYMOUS_OFFLINE];
 
-    public function actionServe(): Response
+    /**
+     * @param string $variantPath The requested path, prefix included, as captured by the variant route.
+     */
+    public function actionServe(string $variantPath): Response
     {
         $handler = Plugin::getInstance()?->delivery();
 
-        try {
-            $delivery = null === $handler ? Delivery::notFound() : $handler->handle($this->request->getPathInfo());
-        } catch (InvalidConfigException) {
-            $delivery = Delivery::notFound();
-        }
-
-        return DeliveryResponder::apply($delivery, $this->response);
+        return DeliveryResponder::apply(
+            null === $handler ? Delivery::notFound() : $handler->handle($variantPath),
+            $this->response,
+        );
     }
 }

@@ -24,13 +24,14 @@ final class SecretProvisionerTest extends TestCase
     private array $written = [];
 
     /**
-     * @return array<string, array{string|null}>
+     * @return array<string, array{mixed}>
      */
     public static function missingSecretProvider(): array
     {
         return [
-            'unset' => [null],
-            'empty' => [''],
+            'unset'    => [null],
+            'empty'    => [''],
+            'not text' => [false],
         ];
     }
 
@@ -42,7 +43,7 @@ final class SecretProvisionerTest extends TestCase
 
     #[DataProvider('missingSecretProvider')]
     #[Test]
-    public function writesANewSecretWhenNoneIsSet(?string $current): void
+    public function writesANewSecretWhenNoneIsSet(mixed $current): void
     {
         static::assertSame(
             [true, [['P_IMAGES_SECRET', 'generated']]],
@@ -50,10 +51,10 @@ final class SecretProvisionerTest extends TestCase
         );
     }
 
-    private function provisioner(?string $current): SecretProvisioner
+    private function provisioner(mixed $current): SecretProvisioner
     {
         return new SecretProvisioner(
-            static fn(): ?string => $current,
+            static fn(): mixed => $current,
             function (string $name, string $value): void {
                 $this->written[] = [$name, $value];
             },

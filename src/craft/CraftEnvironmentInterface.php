@@ -6,6 +6,7 @@ namespace parallelogram\images\craft;
 
 use craft\base\FsInterface;
 use craft\elements\Asset;
+use yii\base\Exception;
 use yii\mutex\Mutex;
 
 /**
@@ -29,6 +30,9 @@ interface CraftEnvironmentInterface
      */
     public function parse(string $value): string;
 
+    /**
+     * @throws Exception When there is no site to take the URL from.
+     */
     public function siteUrl(): string;
 
     public function volumeOf(string $assetUid): ?string;

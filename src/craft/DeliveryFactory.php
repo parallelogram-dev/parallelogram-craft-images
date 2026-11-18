@@ -20,11 +20,13 @@ use parallelogram\images\variants\Processing;
 use parallelogram\images\variants\VariantHasher;
 use parallelogram\images\variants\VariantPath;
 use parallelogram\images\variants\VariantPlanner;
+use yii\base\Exception;
 
 /**
  * Builds the variant request handler from the plugin settings, or nothing
  * when variants aren't fully configured: no filesystem or prefix chosen, an
- * unknown filesystem, no secret, or invalid settings. Without a handler every
+ * unknown filesystem, no secret, invalid settings, or no site to take URLs
+ * from. Without a handler every
  * variant request is answered "not found".
  *
  * @internal
@@ -59,7 +61,7 @@ final readonly class DeliveryFactory
                     new MutexVariantLock($this->environment->mutex()),
                 ),
             );
-        } catch (InvalidVariantException|InvalidSizeSetException|InvalidBackendException) {
+        } catch (InvalidVariantException|InvalidSizeSetException|InvalidBackendException|Exception) {
             return null;
         }
     }
