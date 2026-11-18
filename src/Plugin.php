@@ -22,12 +22,14 @@ use parallelogram\images\elements\actions\RebuildVariants;
 use parallelogram\images\jobs\GenerateJob;
 use parallelogram\images\listeners\AssetEvents;
 use parallelogram\images\models\Settings;
+use parallelogram\images\models\SettingsView;
 use parallelogram\images\services\Generator;
 use parallelogram\images\services\PathBuilder;
 use parallelogram\images\services\Pipeline;
 use parallelogram\images\services\Resolver;
 use parallelogram\images\services\VariantRelocator;
 use parallelogram\images\services\Warmer;
+use parallelogram\images\sizing\Format;
 use parallelogram\images\utilities\WarmUtility;
 use parallelogram\images\web\twig\VariantsVariable;
 use yii\base\Event;
@@ -217,10 +219,11 @@ class Plugin extends BasePlugin
 
         return Craft::$app->getView()
             ->renderTemplate('p-images/_settings', [
-                'plugin'        => $this,
-                'settings'      => $settings,
-                'assetFields'   => $assetFields,
-                'matrixHandles' => array_keys($settings->matrices),
+                'plugin'      => $this,
+                'settings'    => $settings,
+                'view'        => new SettingsView($settings),
+                'assetFields' => $assetFields,
+                'formats'     => Format::cases(),
             ]);
     }
 }
