@@ -7,27 +7,23 @@ use craft\base\Element;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
 use craft\elements\Asset;
-use craft\events\AssetEvent;
 use craft\events\DefineMenuItemsEvent;
-use craft\events\ModelEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterElementActionsEvent;
 use craft\fields\Assets;
-use craft\helpers\Queue;
+use craft\helpers\App;
 use craft\services\Assets as AssetsService;
 use craft\services\Elements;
 use craft\services\Utilities;
 use craft\web\twig\variables\CraftVariable;
+use parallelogram\images\craft\SecretProvisioner;
 use parallelogram\images\elements\actions\RebuildVariants;
-use parallelogram\images\jobs\GenerateJob;
 use parallelogram\images\listeners\AssetEvents;
 use parallelogram\images\models\Settings;
 use parallelogram\images\models\SettingsView;
 use parallelogram\images\services\Generator;
-use parallelogram\images\services\PathBuilder;
 use parallelogram\images\services\Pipeline;
 use parallelogram\images\services\Resolver;
-use parallelogram\images\services\VariantRelocator;
 use parallelogram\images\services\Warmer;
 use parallelogram\images\sizing\Format;
 use parallelogram\images\utilities\WarmUtility;
@@ -44,10 +40,8 @@ use yii\base\Event;
  *
  * @property-read Settings $settings
  * @property-read Generator $generator
- * @property-read PathBuilder $paths
  * @property-read Pipeline $pipeline
  * @property-read Resolver $resolver
- * @property-read VariantRelocator $relocator
  * @property-read Warmer $warmer
  */
 class Plugin extends BasePlugin
@@ -124,39 +118,10 @@ class Plugin extends BasePlugin
 
         $this->setComponents([
             'generator' => Generator::class,
-            'paths'     => PathBuilder::class,
             'pipeline'  => Pipeline::class,
             'resolver'  => Resolver::class,
             'warmer'    => Warmer::class,
-            'relocator' => fn(): VariantRelocator => new VariantRelocator(
-                $this->paths,
-                $this->generator,
-                $this->warmer,
-                Craft::$app->getAssets(),
-            ),
         ]);
-
-        Event::on(
-            Asset::class,
-            Asset::EVENT_BEFORE_HANDLE_FILE,
-            function (AssetEvent $event): void {
-                $this->relocator->copyToNewLocation($event->asset, $event->isNew);
-            },
-        );
-
-        Event::on(
-            Asset::class,
-            Element::EVENT_AFTER_SAVE,
-            function (ModelEvent $event): void {
-                /** @var Asset $asset */
-                $asset         = $event->sender;
-                $matrixHandles = $this->relocator->finishRelocation($asset);
-
-                if ([] !== $matrixHandles && ! Craft::$app->getRequest()->getIsConsoleRequest()) {
-                    Queue::push(new GenerateJob(['assetId' => $asset->id, 'matrixHandles' => $matrixHandles]));
-                }
-            },
-        );
 
         Event::on(
             Utilities::class,
@@ -201,6 +166,20 @@ class Plugin extends BasePlugin
                 $variable->set('pImages', VariantsVariable::class);
             },
         );
+    }
+
+    /**
+     * Adds a variant secret to `.env` unless the site already has one.
+     */
+    protected function afterInstall(): void
+    {
+        parent::afterInstall();
+
+        (new SecretProvisioner(
+            static fn(string $name): ?string => is_string(App::env($name)) ? App::env($name) : null,
+            static fn(string $name, string $value) => Craft::$app->getConfig()->setDotEnvVar($name, $value),
+            static fn(): string => Craft::$app->getSecurity()->generateRandomString(48),
+        ))->provision();
     }
 
     protected function createSettingsModel(): ?Model

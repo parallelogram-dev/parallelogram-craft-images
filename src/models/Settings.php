@@ -85,6 +85,18 @@ final class Settings extends Model
     public int $threadLimit = 0;
 
     /**
+     * Handle of the Craft filesystem variants are written to. Deliberately
+     * empty until chosen: no variants are made or served before then.
+     */
+    public string $variantFilesystem = '';
+
+    /**
+     * Folder for variants within that filesystem, e.g. `asset/variant`. May
+     * reference an environment variable. Deliberately empty until chosen.
+     */
+    public string $variantPrefix = '';
+
+    /**
      * The field assignments, without any size set that no longer exists.
      *
      * @throws InvalidSizeSetException When the stored assignments or size sets are invalid.
@@ -169,6 +181,14 @@ final class Settings extends Model
     }
 
     /**
+     * Whether a variant filesystem and prefix have both been chosen.
+     */
+    public function isConfigured(): bool
+    {
+        return '' !== $this->variantFilesystem && '' !== $this->variantPrefix;
+    }
+
+    /**
      * @return array<int, array<array-key, mixed>>
      */
     #[Override]
@@ -187,6 +207,8 @@ final class Settings extends Model
                     'sizeSetRows',
                     'sizeSets',
                     'threadLimit',
+                    'variantFilesystem',
+                    'variantPrefix',
                 ],
                 'safe',
             ],

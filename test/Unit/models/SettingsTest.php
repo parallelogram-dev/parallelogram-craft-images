@@ -13,6 +13,8 @@ use parallelogram\images\config\SizeSetRows;
 use parallelogram\images\config\SizeSetTable;
 use parallelogram\images\models\Settings;
 use parallelogram\images\models\SettingsValidator;
+use parallelogram\images\models\SingleValueChecks;
+use parallelogram\images\models\VariantPrefixCheck;
 use parallelogram\images\sizing\AspectRatio;
 use parallelogram\images\sizing\Encoding;
 use parallelogram\images\sizing\FieldAssignment;
@@ -23,6 +25,8 @@ use parallelogram\images\sizing\InvalidSizeSetException;
 use parallelogram\images\sizing\QualityTable;
 use parallelogram\images\sizing\SizeSet;
 use parallelogram\images\sizing\SizeSetCatalogue;
+use parallelogram\images\variants\InvalidVariantException;
+use parallelogram\images\variants\VariantPath;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -38,6 +42,8 @@ use function array_keys;
  */
 #[CoversClass(Settings::class)]
 #[CoversClass(SettingsValidator::class)]
+#[CoversClass(SingleValueChecks::class)]
+#[CoversClass(VariantPrefixCheck::class)]
 #[UsesClass(AspectRatio::class)]
 #[UsesClass(AssignmentConfig::class)]
 #[UsesClass(ConfigValues::class)]
@@ -55,6 +61,8 @@ use function array_keys;
 #[UsesClass(SizeSetConfig::class)]
 #[UsesClass(SizeSetRows::class)]
 #[UsesClass(SizeSetTable::class)]
+#[UsesClass(InvalidVariantException::class)]
+#[UsesClass(VariantPath::class)]
 #[Group('unit')]
 final class SettingsTest extends TestCase
 {
@@ -99,7 +107,25 @@ final class SettingsTest extends TestCase
             'sharpen negative'   => [['sharpenAmount' => -1.0], 'sharpenAmount', 'Sharpen amount must be from 0 to 5.'],
             'too many threads'   => [['threadLimit' => 65], 'threadLimit', 'Thread limit must be from 0 to 64.'],
             'negative threads'   => [['threadLimit' => -1], 'threadLimit', 'Thread limit must be from 0 to 64.'],
+            'unsafe prefix'      => [
+                ['variantPrefix' => '../secret'],
+                'variantPrefix',
+                'can\'t be used as a variant prefix',
+            ],
         ];
+    }
+
+    #[Test]
+    public function acceptsSafePrefixesAndLeavesEnvironmentOnesForLater(): void
+    {
+        static::assertSame(
+            [true, true, true],
+            [
+                (new Settings(['variantPrefix' => 'asset/variant']))->validate(),
+                (new Settings(['variantPrefix' => '$VARIANT_PREFIX']))->validate(),
+                (new Settings(['variantPrefix' => '@variants']))->validate(),
+            ],
+        );
     }
 
     #[Test]
@@ -108,6 +134,20 @@ final class SettingsTest extends TestCase
         $settings = new Settings(['defaultFormats' => []]);
 
         static::assertSame([Format::Avif, Format::Jpg], $settings->defaultFormatList());
+    }
+
+    #[Test]
+    public function isConfiguredOnlyOnceFilesystemAndPrefixAreChosen(): void
+    {
+        static::assertSame(
+            [false, false, false, true],
+            [
+                (new Settings())->isConfigured(),
+                (new Settings(['variantFilesystem' => 'variants']))->isConfigured(),
+                (new Settings(['variantPrefix' => 'asset/variant']))->isConfigured(),
+                (new Settings(['variantFilesystem' => 'variants', 'variantPrefix' => 'asset/variant']))->isConfigured(),
+            ],
+        );
     }
 
     #[Test]

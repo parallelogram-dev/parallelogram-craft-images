@@ -47,7 +47,7 @@ final class SettingsValidator
             $errors['sizeSets'] = $sizeSetErrors;
         }
 
-        foreach (self::otherErrors($settings) as $attribute => $message) {
+        foreach (SingleValueChecks::errors($settings) as $attribute => $message) {
             $errors[$attribute][] = $message;
         }
 
@@ -73,36 +73,6 @@ final class SettingsValidator
         $settings->fieldAssignments = AssignmentConfig::toArray(
             AssignmentConfig::fromArray($settings->fieldAssignments)->prunedTo($catalogue),
         );
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private static function otherErrors(Settings $settings): array
-    {
-        $errors = [];
-
-        try {
-            AssignmentConfig::fromArray($settings->fieldAssignments);
-        } catch (InvalidSizeSetException $exception) {
-            $errors['fieldAssignments'] = $exception->getMessage();
-        }
-
-        try {
-            $settings->siteQuality();
-        } catch (InvalidSizeSetException $exception) {
-            $errors['formatQuality'] = $exception->getMessage();
-        }
-
-        if ($settings->sharpenAmount < 0.0 || $settings->sharpenAmount > 5.0) {
-            $errors['sharpenAmount'] = 'Sharpen amount must be from 0 to 5.';
-        }
-
-        if ($settings->threadLimit < 0 || $settings->threadLimit > 64) {
-            $errors['threadLimit'] = 'Thread limit must be from 0 to 64.';
-        }
-
-        return $errors;
     }
 
     /**

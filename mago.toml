@@ -40,20 +40,20 @@ excludes = [
     "src/listeners/AssetEvents.php",
     "src/models/VariantSet.php",
     "src/services/Generator.php",
-    "src/services/PathBuilder.php",
     "src/services/Pipeline.php",
     "src/services/Resolver.php",
-    "src/services/VariantRelocator.php",
     "src/services/Warmer.php",
     "src/utilities/WarmUtility.php",
     "src/web/twig/VariantsVariable.php",
-    "test/Unit/services/VariantRelocatorTest.php",
     "test/bootstrap.php",
 ]
 minimum-fail-level = "Help"
 integrations = ["phpunit"]
 
 [linter.rules]
+# Craft binds plugin settings to the settings form and project config as flat
+# public properties, so the settings model can't be split to fit this rule.
+too-many-properties = { exclude = ["src/models/Settings.php"] }
 literal-named-argument = { enabled = true }
 halstead = { effort-threshold = 7000 }
 valid-docblock = { enabled = true }
@@ -130,14 +130,11 @@ excludes = [
     "src/listeners/AssetEvents.php",
     "src/models/VariantSet.php",
     "src/services/Generator.php",
-    "src/services/PathBuilder.php",
     "src/services/Pipeline.php",
     "src/services/Resolver.php",
-    "src/services/VariantRelocator.php",
     "src/services/Warmer.php",
     "src/utilities/WarmUtility.php",
     "src/web/twig/VariantsVariable.php",
-    "test/Unit/services/VariantRelocatorTest.php",
     "test/bootstrap.php",
 ]
 plugins = ["psl", "psr-container"]
