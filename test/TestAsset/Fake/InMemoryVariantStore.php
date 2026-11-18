@@ -6,9 +6,16 @@ namespace parallelogram\images\test\TestAsset\Fake;
 
 use Override;
 use parallelogram\images\delivery\StorageFailedException;
+use parallelogram\images\delivery\VariantFoldersInterface;
 use parallelogram\images\delivery\VariantStoreInterface;
 
 use function array_key_exists;
+use function array_keys;
+use function explode;
+use function str_contains;
+use function str_starts_with;
+use function strlen;
+use function substr;
 
 /**
  * A variant store held in memory. A store with a base URL that isn't on the
@@ -17,7 +24,7 @@ use function array_key_exists;
  *
  * @internal
  */
-final class InMemoryVariantStore implements VariantStoreInterface
+final class InMemoryVariantStore implements VariantStoreInterface, VariantFoldersInterface
 {
     /**
      * @var array<string, string>
@@ -31,6 +38,22 @@ final class InMemoryVariantStore implements VariantStoreInterface
     ) {}
 
     #[Override]
+    public function deleteFolder(string $path): void
+    {
+        if ($this->broken) {
+            throw new StorageFailedException("Couldn't delete {$path}.");
+        }
+
+        foreach (array_keys($this->files) as $file) {
+            if (! str_starts_with($file, "{$path}/")) {
+                continue;
+            }
+
+            unset($this->files[$file]);
+        }
+    }
+
+    #[Override]
     public function exists(string $path): bool
     {
         if ($this->broken) {
@@ -38,6 +61,29 @@ final class InMemoryVariantStore implements VariantStoreInterface
         }
 
         return array_key_exists($path, $this->files);
+    }
+
+    /**
+     * @return list<string>
+     */
+    #[Override]
+    public function folders(string $path): array
+    {
+        if ($this->broken) {
+            throw new StorageFailedException("Couldn't list {$path}.");
+        }
+
+        $names = [];
+
+        foreach (array_keys($this->files) as $file) {
+            $relative = str_starts_with($file, "{$path}/") ? substr($file, strlen($path) + 1) : '';
+
+            if (str_contains($relative, '/')) {
+                $names[explode('/', $relative)[0]] = true;
+            }
+        }
+
+        return array_keys($names);
     }
 
     #[Override]

@@ -25,6 +25,8 @@ use parallelogram\images\craft\MutexVariantLock;
 use parallelogram\images\craft\VariantBackends;
 use parallelogram\images\craft\VariantStorage;
 use parallelogram\images\delivery\DeliveryPorts;
+use parallelogram\images\delivery\MakeResult;
+use parallelogram\images\delivery\VariantMaker;
 use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\models\Settings;
 use parallelogram\images\picture\StoredVariantLinks;
@@ -92,6 +94,8 @@ use yii\mutex\Mutex;
 #[UsesClass(VariantStorage::class)]
 #[UsesClass(VipsGenerator::class)]
 #[UsesClass(VolumeRoutingGenerator::class)]
+#[UsesClass(MakeResult::class)]
+#[UsesClass(VariantMaker::class)]
 #[Group('unit')]
 final class DeliveryFactoryTest extends TestCase
 {

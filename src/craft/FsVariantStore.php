@@ -6,8 +6,10 @@ namespace parallelogram\images\craft;
 
 use craft\base\FsInterface;
 use craft\errors\FsException;
+use craft\models\FsListing;
 use Override;
 use parallelogram\images\delivery\StorageFailedException;
+use parallelogram\images\delivery\VariantFoldersInterface;
 use parallelogram\images\delivery\VariantStoreInterface;
 
 use function array_map;
@@ -26,7 +28,7 @@ use const PHP_URL_HOST;
  *
  * @internal
  */
-final readonly class FsVariantStore implements VariantStoreInterface
+final readonly class FsVariantStore implements VariantStoreInterface, VariantFoldersInterface
 {
     public function __construct(
         private FsInterface $fs,
@@ -56,6 +58,16 @@ final readonly class FsVariantStore implements VariantStoreInterface
     }
 
     #[Override]
+    public function deleteFolder(string $path): void
+    {
+        try {
+            $this->fs->deleteDirectory($path);
+        } catch (FsException $exception) {
+            throw new StorageFailedException("Couldn't delete {$path}.", previous: $exception);
+        }
+    }
+
+    #[Override]
     public function exists(string $path): bool
     {
         try {
@@ -63,6 +75,32 @@ final readonly class FsVariantStore implements VariantStoreInterface
         } catch (FsException $exception) {
             throw new StorageFailedException("Couldn't check for {$path}.", previous: $exception);
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    #[Override]
+    public function folders(string $path): array
+    {
+        $names = [];
+
+        try {
+            /** @var iterable<FsListing> $listings */
+            $listings = $this->fs->getFileList($path, recursive: false);
+
+            foreach ($listings as $listing) {
+                if (! $listing->getIsDir()) {
+                    continue;
+                }
+
+                $names[] = $listing->getBasename();
+            }
+        } catch (FsException $exception) {
+            throw new StorageFailedException("Couldn't list {$path}.", previous: $exception);
+        }
+
+        return $names;
     }
 
     #[Override]

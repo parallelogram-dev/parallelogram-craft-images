@@ -16,18 +16,19 @@ use Override;
 use parallelogram\images\backends\BackendKind;
 use parallelogram\images\craft\AssetMethods;
 use parallelogram\images\craft\AssetPictures;
-use parallelogram\images\craft\ConfiguredVariants;
+use parallelogram\images\craft\ControlPanelEvents;
 use parallelogram\images\craft\DeliveryFactory;
 use parallelogram\images\craft\LiveCraftEnvironment;
+use parallelogram\images\craft\PictureServiceFactory;
 use parallelogram\images\craft\PlaceholderEvents;
 use parallelogram\images\craft\SecretProvisioner;
+use parallelogram\images\craft\Warming;
+use parallelogram\images\craft\WarmingEvents;
+use parallelogram\images\craft\WarmingFactory;
 use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\models\Settings;
 use parallelogram\images\models\SettingsView;
-use parallelogram\images\picture\Loading;
-use parallelogram\images\sizing\AlternateImages;
 use parallelogram\images\sizing\Format;
-use parallelogram\images\sizing\InvalidSizeSetException;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -59,6 +60,8 @@ final class Plugin extends BasePlugin
 
     private ?VariantRequestHandler $deliveryHandler = null;
 
+    private ?Warming $warmingService = null;
+
     /**
      * Sends requests under the variant prefix to the plugin, once variants
      * are configured, passing the whole path (prefix included) as
@@ -74,18 +77,6 @@ final class Plugin extends BasePlugin
         }
 
         $event->rules['<variantPath:' . preg_quote($prefix, delimiter: '#') . '/.+>'] = 'p-images/variants/serve';
-    }
-
-    /**
-     * The size sets' alternate images, or none when they can't be read.
-     */
-    private static function alternates(Settings $settings): AlternateImages
-    {
-        try {
-            return $settings->alternateImages();
-        } catch (InvalidSizeSetException) {
-            return new AlternateImages();
-        }
     }
 
     private static function parsed(string $value): string
@@ -121,6 +112,8 @@ final class Plugin extends BasePlugin
 
         AssetMethods::register(fn(): AssetPictures => (self::getInstance() ?? $this)->pictures());
         PlaceholderEvents::register();
+        ControlPanelEvents::register();
+        WarmingEvents::register();
     }
 
     /**
@@ -131,15 +124,13 @@ final class Plugin extends BasePlugin
     {
         $settings = $this->getSettings();
 
-        return $this->assetPictures ??= new AssetPictures(
-            ConfiguredVariants::from($settings, new LiveCraftEnvironment()),
+        return $this->assetPictures ??= (new PictureServiceFactory(
+            new LiveCraftEnvironment(),
             Craft::$app->getConfig()->getGeneral()->devMode,
             static function (string $message): void {
                 Craft::warning($message, category: 'p-images');
             },
-            $settings->lazysrcByDefault ? Loading::Lazysrc : Loading::Lazy,
-            self::alternates($settings),
-        );
+        ))->pictures($settings);
     }
 
     /**
@@ -154,6 +145,18 @@ final class Plugin extends BasePlugin
         parent::setSettings($settings);
         $this->assetPictures   = null;
         $this->deliveryHandler = null;
+        $this->warmingService  = null;
+    }
+
+    /**
+     * Making and removing variants ahead of time, or null until variants are
+     * fully configured.
+     */
+    public function warming(): ?Warming
+    {
+        return $this->warmingService ??= (new WarmingFactory(new LiveCraftEnvironment()))->warming(
+            $this->getSettings(),
+        );
     }
 
     /**

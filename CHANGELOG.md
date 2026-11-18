@@ -21,6 +21,10 @@
 - Alternate images: each size set can name an Assets field on the asset's own layout (found by UID, so overridden handles work), a media query and an optional size set. When the field has an image, `asset.picture()` adds it as an art-directed source; a template's `sources` option replaces it, and `sources: []` turns it off.
 - A Placeholder Colour field type. Added to a volume's field layout, it holds each image's most common colour (similar colours grouped, the largest group averaged), worked out by a queue job whenever an image is uploaded or replaced and stored straight into the asset's content without an element save. `asset.picture()` fills the image's box with it until the image loads (`style="background-color:…"`, which a template's own `style` attribute replaces), and `asset.variants()` has it as `colour`.
 - `php craft p-images/placeholders [--force]` fills in placeholder colours for images already uploaded.
+- Making variants ahead of time: when an image is uploaded or replaced, a queue job makes the size sets assigned (Pre-generate tab) to any Assets field that accepts its volume; when an element is saved, jobs make the size sets assigned to the images in its changed fields (new elements: all of them). Each file is made once under a lock, so repeats and overlaps are harmless. Images on volumes that use imgproxy or Cloudflare are left to those services.
+- Cleaning up: after an image is replaced, and only once its new variants exist, the old file's folders are deleted. Deleting an asset queues deleting all of its variants. Nothing is deleted while no size sets are defined.
+- Console commands: `p-images/warm`, `audit` (exits non-zero when variants are missing, to guard a deploy), `rebuild` and `gc` (removes variants of deleted images and out-of-date files), with `--volume` and, for warm and audit, `--size-set`.
+- Utilities → Parallelogram Images, with buttons that queue making missing variants or removing unused ones, and an Assets index action that rebuilds the selected images' variants. Both need the `utility:p-images-warm` permission.
 - A "Use Lazysrc by default" setting; templates opt out with `lazysrc: false`.
 - Until variants are configured, and for SVGs, GIFs and other files that aren't resized, pictures show the original file, with an explaining HTML comment in dev mode. An unknown size set or option is an error in dev mode; in production it's logged and the original is shown.
 - Pages link straight to variant files served from the site's own domain, to the site's variant route (which redirects) for files kept in a bucket or CDN, and to imgproxy or Cloudflare for volumes that use them.
@@ -36,7 +40,7 @@
 - New installs start with no size sets; the prototype's seeded sets were specific to one site.
 
 ### Removed
-- The prototype's warm utility, rebuild action and asset-save hooks, until warming is rebuilt.
+- The prototype's warming services, CP progress tracking with its Stop button and cached coverage report, and asset-save hooks, replaced by the queue-based warming above.
 - The bundled 1998 HP sRGB profile, replaced by the ICC's freely redistributable sRGB v4 preference profile (see THIRD-PARTY-NOTICES.md).
 - Moving variants when an asset is moved or renamed, which UID-based paths make unnecessary.
 - The prototype's `craft.pImages.variantSet()` Twig variable, replaced by `asset.picture()` and `asset.variants()`.

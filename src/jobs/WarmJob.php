@@ -1,57 +1,49 @@
 <?php
 
+declare(strict_types=1);
+
 namespace parallelogram\images\jobs;
 
 use Craft;
-use craft\elements\Asset;
 use craft\queue\BaseJob;
+use Override;
+use parallelogram\images\craft\BatchWarming;
 use parallelogram\images\Plugin;
 
 /**
- * Deliberate, controlled warm as a queue job — so the CP shows native progress
- * (like Feed Me). It runs the same serial, memory-bounded Warmer::warm() as the
- * CLI; this is not the lazy/render path, which still never queues.
+ * Makes the missing variants of every image, or of one volume's, showing its
+ * progress in Craft's queue. Files already there are left alone, so running
+ * it again carries on where a stopped run left off.
+ *
+ * @api
  */
-class WarmJob extends BaseJob
+final class WarmJob extends BaseJob
 {
-    public ?string $field = null;
-
-    public ?string $matrix = null;
+    public ?string $sizeSet = null;
 
     public ?string $volume = null;
 
+    #[Override]
     public function execute($queue): void
     {
-        $warmer = Plugin::getInstance()->warmer;
-        $plan   = $warmer->plan($this->field, $this->matrix, $this->volume);
+        $warming = Plugin::getInstance()?->warming();
 
-        if ([] === $plan) {
+        if (null === $warming) {
             return;
         }
 
-        $scope = ['field' => $this->field, 'matrix' => $this->matrix, 'volume' => $this->volume];
+        $batch = new BatchWarming($warming);
 
-        $warmer->warm($plan, $scope, function (int $processed, int $total, ?Asset $asset, int $made) use (
+        $batch->warm($batch->imageIds($this->volume) ?? [], $this->sizeSet, function (int $done, int $total) use (
             $queue,
         ): void {
-            $this->setProgress(
-                $queue,
-                $processed / $total,
-                Craft::t('p-images', '{processed} of {total}', [
-                    'processed' => $processed,
-                    'total'     => $total,
-                ]),
-            );
+            $this->setProgress($queue, $done / $total);
         });
     }
 
+    #[Override]
     protected function defaultDescription(): ?string
     {
-        $scope = array_filter([$this->matrix, $this->field, $this->volume]);
-
-        return (
-            Craft::t('p-images', 'Warming image variants')
-                . ([] !== $scope ? ' (' . implode(' / ', $scope) . ')' : '')
-        );
+        return Craft::t('p-images', message: 'Making image variants');
     }
 }

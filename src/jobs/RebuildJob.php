@@ -1,33 +1,37 @@
 <?php
 
+declare(strict_types=1);
+
 namespace parallelogram\images\jobs;
 
 use Craft;
-use craft\elements\Asset;
 use craft\queue\BaseJob;
+use Override;
+use parallelogram\images\craft\BatchWarming;
 use parallelogram\images\Plugin;
 
 /**
- * Rebuild one asset's variants as a queue job — the asset edit screen's
- * "Rebuild image variants" action pushes this, so a regenerate (which deletes
- * then re-encodes, and can take a few seconds) never blocks the edit request.
- * Runs the same Warmer::rebuild() as the index action and the CLI.
+ * Deletes every variant of one image and makes the assigned ones again.
+ *
+ * @api
  */
-class RebuildJob extends BaseJob
+final class RebuildJob extends BaseJob
 {
-    public int $assetId;
+    public int $assetId = 0;
 
+    #[Override]
     public function execute($queue): void
     {
-        $asset = Asset::find()->id($this->assetId)->kind('image')->one();
+        $warming = Plugin::getInstance()?->warming();
 
-        if ($asset instanceof Asset) {
-            Plugin::getInstance()->warmer->rebuild($asset);
+        if (null !== $warming) {
+            (new BatchWarming($warming))->rebuild([$this->assetId]);
         }
     }
 
+    #[Override]
     protected function defaultDescription(): ?string
     {
-        return Craft::t('p-images', 'Rebuilding image variants');
+        return Craft::t('p-images', message: 'Rebuilding image variants');
     }
 }

@@ -30,6 +30,8 @@ use parallelogram\images\craft\VariantStorage;
 use parallelogram\images\delivery\Delivery;
 use parallelogram\images\delivery\DeliveryOutcome;
 use parallelogram\images\delivery\DeliveryPorts;
+use parallelogram\images\delivery\MakeResult;
+use parallelogram\images\delivery\VariantMaker;
 use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\models\Settings;
 use parallelogram\images\picture\StoredVariantLinks;
@@ -120,6 +122,8 @@ use function array_key_exists;
 #[UsesClass(VariantBackends::class)]
 #[UsesClass(VariantStorage::class)]
 #[UsesClass(StoredVariantLinks::class)]
+#[UsesClass(MakeResult::class)]
+#[UsesClass(VariantMaker::class)]
 #[Group('integration')]
 final class DeliveryFactoryEndToEndTest extends TestCase
 {

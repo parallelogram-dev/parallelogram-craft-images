@@ -23,26 +23,6 @@ align-assignment-like = true
 sort-class-methods = true
 
 [linter]
-# Prototype files not yet rebuilt to the agreed design. Each file leaves this
-# list when it is reworked, made Mago-clean and fully tested. The list must be
-# empty before v1.
-excludes = [
-    "src/console/controllers/AuditController.php",
-    "src/console/controllers/RebuildController.php",
-    "src/console/controllers/WarmController.php",
-    "src/controllers/RebuildController.php",
-    "src/controllers/WarmController.php",
-    "src/elements/actions/RebuildVariants.php",
-    "src/jobs/GenerateJob.php",
-    "src/jobs/RebuildJob.php",
-    "src/jobs/WarmJob.php",
-    "src/listeners/AssetEvents.php",
-    "src/services/Generator.php",
-    "src/services/Pipeline.php",
-    "src/services/Warmer.php",
-    "src/utilities/WarmUtility.php",
-    "test/bootstrap.php",
-]
 minimum-fail-level = "Help"
 integrations = ["phpunit"]
 
@@ -111,30 +91,10 @@ switch-continue-to-break = { enabled = true }
 invalid-open-tag = { level = "Help" }
 
 [analyzer]
-# The same prototype files. Their findings are hidden, but their classes stay
-# visible to the analyser so reworked code can refer to them. Each leaves this
-# list with its linter entry; the list must be empty before v1.
 ignore = [
     # PHPUnit bootstrap files and one test helper are glue that must touch
     # superglobals such as $_SERVER, which this config treats as undefined.
     { pattern = ".", in = ["test/bootstrap.php", "test/Craft/bootstrap.php", "test/TestAsset/EnvironmentVariables.php"] },
-    { pattern = ".", in = [
-    "src/console/controllers/AuditController.php",
-    "src/console/controllers/RebuildController.php",
-    "src/console/controllers/WarmController.php",
-    "src/controllers/RebuildController.php",
-    "src/controllers/WarmController.php",
-    "src/elements/actions/RebuildVariants.php",
-    "src/jobs/GenerateJob.php",
-    "src/jobs/RebuildJob.php",
-    "src/jobs/WarmJob.php",
-    "src/listeners/AssetEvents.php",
-    "src/services/Generator.php",
-    "src/services/Pipeline.php",
-    "src/services/Warmer.php",
-    "src/utilities/WarmUtility.php",
-    "test/bootstrap.php",
-    ] },
 ]
 plugins = ["psl", "psr-container"]
 find-unused-definitions = true

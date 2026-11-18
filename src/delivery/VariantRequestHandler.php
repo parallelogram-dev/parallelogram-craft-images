@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace parallelogram\images\delivery;
 
 use parallelogram\images\sizing\SizeSetCatalogue;
-use parallelogram\images\variants\SourceImage;
 use parallelogram\images\variants\VariantFile;
 use parallelogram\images\variants\VariantPath;
 use parallelogram\images\variants\VariantPlanner;
@@ -23,12 +22,16 @@ use parallelogram\images\variants\VariantPlanner;
  */
 final readonly class VariantRequestHandler
 {
+    private VariantMaker $maker;
+
     public function __construct(
         private VariantPath $path,
         private VariantPlanner $planner,
         private SizeSetCatalogue $catalogue,
         private DeliveryPorts $ports,
-    ) {}
+    ) {
+        $this->maker = new VariantMaker($ports->generator, $ports->store, $ports->lock);
+    }
 
     public function handle(string $requestedPath): Delivery
     {
@@ -44,7 +47,7 @@ final readonly class VariantRequestHandler
         }
 
         try {
-            if (! $this->ports->store->exists($file->path) && ! $this->generate($source, $file)) {
+            if (MakeResult::Failed === $this->maker->ensure($source, $file)) {
                 return Delivery::unavailable();
             }
 
@@ -66,31 +69,5 @@ final readonly class VariantRequestHandler
         }
 
         return Delivery::content($this->ports->store->read($file->path), $file->variant->format->mimeType());
-    }
-
-    /**
-     * Makes and saves the file unless another request is already doing so.
-     *
-     * @return bool Whether the file now exists.
-     *
-     * @throws StorageFailedException
-     */
-    private function generate(SourceImage $source, VariantFile $file): bool
-    {
-        if (! $this->ports->lock->acquire($file->path)) {
-            return $this->ports->store->exists($file->path);
-        }
-
-        try {
-            if (! $this->ports->store->exists($file->path)) {
-                $this->ports->store->write($file->path, $this->ports->generator->generate($source, $file));
-            }
-
-            return true;
-        } catch (GenerationFailedException) {
-            return false;
-        } finally {
-            $this->ports->lock->release($file->path);
-        }
     }
 }

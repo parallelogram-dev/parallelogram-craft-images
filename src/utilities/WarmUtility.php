@@ -1,48 +1,54 @@
 <?php
 
+declare(strict_types=1);
+
 namespace parallelogram\images\utilities;
 
 use Craft;
 use craft\base\Utility;
-use parallelogram\images\Plugin;
+use craft\web\View;
+use Override;
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
+use yii\base\Exception;
 
 /**
- * Utilities → Parallelogram Images: per field/matrix asset counts and "Warm" buttons
- * that enqueue a WarmJob, whose progress shows in the CP queue widget.
+ * Utilities → Parallelogram Images: queues making missing variants, or
+ * removing unused ones.
+ *
+ * @api
  */
-class WarmUtility extends Utility
+final class WarmUtility extends Utility
 {
+    /**
+     * @throws Exception
+     * @throws LoaderError
+     * @throws RuntimeError
+     * @throws SyntaxError
+     */
+    #[Override]
     public static function contentHtml(): string
     {
-        $warmer   = Plugin::getInstance()->warmer;
-        $audit    = $warmer->cachedAudit();
-        $coverage = $audit['report'];
+        /** @var View $view Craft's view is always its web view, in console requests too. */
+        $view = Craft::$app->getView();
 
-        $rows = array_map(static function (array $row) use ($warmer, $coverage): array {
-            $row['active']   = $warmer->isActive($row['field'], $row['matrix']);
-            $row['coverage'] = $coverage[$row['matrix']] ?? null;
-            return $row;
-        }, $warmer->summary());
-
-        return Craft::$app->getView()
-            ->renderTemplate('p-images/_utility', [
-                'rows'        => $rows,
-                'anyActive'   => $warmer->isActive(null, null),
-                'anyAuditing' => $warmer->isActive(null, null, 'audit'),
-                'auditedAt'   => $audit['auditedAt'],
-            ]);
+        return $view->renderTemplate('p-images/_utility');
     }
 
+    #[Override]
     public static function displayName(): string
     {
-        return Craft::t('p-images', 'Parallelogram Images');
+        return Craft::t('p-images', message: 'Parallelogram Images');
     }
 
+    #[Override]
     public static function icon(): ?string
     {
         return 'image';
     }
 
+    #[Override]
     public static function id(): string
     {
         return 'p-images-warm';

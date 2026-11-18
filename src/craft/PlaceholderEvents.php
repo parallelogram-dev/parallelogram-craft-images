@@ -57,8 +57,10 @@ final class PlaceholderEvents
      */
     private static function needsColour(Asset $asset, ModelEvent $event): bool
     {
-        $hasNewFile = $event->isNew || Asset::SCENARIO_REPLACE === $asset->getScenario();
-
-        return $hasNewFile && null !== AssetSource::from($asset) && null !== PlaceholderStore::field($asset);
+        return (
+            NewFile::arrived($asset, $event)
+                && null !== AssetSource::from($asset)
+                && null !== PlaceholderStore::field($asset)
+        );
     }
 }

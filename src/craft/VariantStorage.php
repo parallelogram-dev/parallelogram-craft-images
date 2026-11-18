@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace parallelogram\images\craft;
 
-use parallelogram\images\delivery\VariantStoreInterface;
 use parallelogram\images\picture\StoredVariantLinks;
 
 /**
@@ -15,7 +14,7 @@ use parallelogram\images\picture\StoredVariantLinks;
 final readonly class VariantStorage
 {
     public function __construct(
-        public VariantStoreInterface $store,
+        public FsVariantStore $store,
         public StoredVariantLinks $links,
     ) {}
 }

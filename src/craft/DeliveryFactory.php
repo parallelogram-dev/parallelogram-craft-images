@@ -27,6 +27,22 @@ final readonly class DeliveryFactory
         private CraftEnvironmentInterface $environment,
     ) {}
 
+    public function generatorFor(VariantBackends $backends): VolumeRoutingGenerator
+    {
+        $files = new CraftSourceFile($this->environment->findAsset(...));
+
+        return new VolumeRoutingGenerator(
+            $backends->choice,
+            new BackendAvailability($this->environment->hasLibrary(...)),
+            [
+                BackendKind::Vips->value    => new VipsGenerator($files, $backends->processing),
+                BackendKind::Imagick->value => new ImagickGenerator($files, $backends->processing),
+                BackendKind::Gd->value      => new GdGenerator($files, $backends->processing),
+            ],
+            $this->environment->volumeOf(...),
+        );
+    }
+
     public function handler(Settings $settings): ?VariantRequestHandler
     {
         $variants = ConfiguredVariants::from($settings, $this->environment);
@@ -42,25 +58,9 @@ final readonly class DeliveryFactory
             new DeliveryPorts(
                 new CraftSourceLookup($this->environment->findAsset(...)),
                 $variants->storage->store,
-                $this->generator($variants->backends),
+                $this->generatorFor($variants->backends),
                 new MutexVariantLock($this->environment->mutex()),
             ),
-        );
-    }
-
-    private function generator(VariantBackends $backends): VolumeRoutingGenerator
-    {
-        $files = new CraftSourceFile($this->environment->findAsset(...));
-
-        return new VolumeRoutingGenerator(
-            $backends->choice,
-            new BackendAvailability($this->environment->hasLibrary(...)),
-            [
-                BackendKind::Vips->value    => new VipsGenerator($files, $backends->processing),
-                BackendKind::Imagick->value => new ImagickGenerator($files, $backends->processing),
-                BackendKind::Gd->value      => new GdGenerator($files, $backends->processing),
-            ],
-            $this->environment->volumeOf(...),
         );
     }
 }

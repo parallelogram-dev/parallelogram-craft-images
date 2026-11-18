@@ -6,6 +6,8 @@ namespace parallelogram\images\test\Unit\craft;
 
 use craft\base\FsInterface;
 use craft\errors\FsException;
+use craft\models\FsListing;
+use Generator;
 use parallelogram\images\craft\FsVariantStore;
 use parallelogram\images\delivery\StorageFailedException;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -51,6 +53,18 @@ final class FsVariantStoreTest extends TestCase
         ];
     }
 
+    /**
+     * @throws StorageFailedException
+     */
+    #[Test]
+    public function deletesAFolderOnTheFilesystem(): void
+    {
+        $fs = $this->createMock(FsInterface::class);
+        $fs->expects(static::once())->method('deleteDirectory')->with('asset/variant/abc');
+
+        (new FsVariantStore($fs, onSiteDomain: true))->deleteFolder('asset/variant/abc');
+    }
+
     #[Test]
     public function encodesEachPathSegmentInUrls(): void
     {
@@ -82,6 +96,36 @@ final class FsVariantStoreTest extends TestCase
      * @throws StorageFailedException
      */
     #[Test]
+    public function listsOnlyTheFoldersDirectlyInsideAFolder(): void
+    {
+        $listing = static fn(string $type, string $basename): FsListing => new FsListing([
+            'type'     => $type,
+            'dirname'  => 'asset/variant',
+            'basename' => $basename,
+        ]);
+        $fs = $this->createStub(FsInterface::class);
+        $fs->method('getFileList')->willReturnCallback(static function () use ($listing): Generator {
+            yield $listing(
+                type: 'dir',
+                basename: 'one',
+            );
+            yield $listing(
+                type: 'file',
+                basename: 'stray.txt',
+            );
+            yield $listing(
+                type: 'dir',
+                basename: 'two',
+            );
+        });
+
+        static::assertSame(['one', 'two'], (new FsVariantStore($fs, onSiteDomain: true))->folders('asset/variant'));
+    }
+
+    /**
+     * @throws StorageFailedException
+     */
+    #[Test]
     public function passesReadsAndChecksThrough(): void
     {
         $fs = $this->createStub(FsInterface::class);
@@ -90,6 +134,34 @@ final class FsVariantStoreTest extends TestCase
         $store = new FsVariantStore($fs, onSiteDomain: true);
 
         static::assertSame([true, 'bytes'], [$store->exists('a.avif'), $store->read('a.avif')]);
+    }
+
+    /**
+     * @throws StorageFailedException
+     */
+    #[Test]
+    public function reportsADeleteThatFailsAsAStorageFailure(): void
+    {
+        $fs = $this->createStub(FsInterface::class);
+        $fs->method('deleteDirectory')->willThrowException(new FsException('Read only.'));
+
+        $this->expectException(StorageFailedException::class);
+
+        (new FsVariantStore($fs, onSiteDomain: true))->deleteFolder('asset/variant/abc');
+    }
+
+    /**
+     * @throws StorageFailedException
+     */
+    #[Test]
+    public function reportsAListingThatFailsAsAStorageFailure(): void
+    {
+        $fs = $this->createStub(FsInterface::class);
+        $fs->method('getFileList')->willThrowException(new FsException('No access.'));
+
+        $this->expectException(StorageFailedException::class);
+
+        (new FsVariantStore($fs, onSiteDomain: true))->folders('asset/variant');
     }
 
     /**

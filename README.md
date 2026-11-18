@@ -39,6 +39,19 @@ For a colour behind each image while it loads, add a **Placeholder Colour** fiel
 
 Until a variant filesystem and prefix are chosen, and for SVGs and GIFs, `asset.picture()` shows the original file. An unknown size set or option is an error in dev mode; in production it's logged and the original is shown.
 
+## Making and removing variants
+
+Variants are made the first time they're asked for, and ahead of time for the size sets chosen on the Pre-generate tab: when an image is uploaded or replaced, and when an entry (or other element) is saved with images in those fields. Replacing an image removes its old variants once the new ones exist, and deleting one removes them all.
+
+```bash
+php craft p-images/warm [--volume=handle] [--size-set=handle]   # make missing variants
+php craft p-images/audit [--volume=handle] [--size-set=handle]  # count missing ones; exits 1 if any (a deploy guard)
+php craft p-images/rebuild [--volume=handle]                    # delete and remake
+php craft p-images/gc                                           # remove variants nothing can ask for
+```
+
+Utilities → Parallelogram Images queues the same work, and the Assets index has a "Rebuild image variants" action. They need the `utility:p-images-warm` permission.
+
 ## Development
 
 ```bash
@@ -58,7 +71,6 @@ vendor/bin/phpunit -c vendor/parallelogram/craft-images/phpunit.craft.xml
 
 Each test runs in a rolled-back transaction, project config is never written back to the sandbox, and the test volume and variant folders are emptied afterwards.
 
-The files listed under `excludes` in `mago.toml` are prototype code that hasn't been reworked yet. A file comes off that list once it has been rebuilt, is Mago-clean and has full test coverage. The list must be empty before v1.
 
 ## Licence
 

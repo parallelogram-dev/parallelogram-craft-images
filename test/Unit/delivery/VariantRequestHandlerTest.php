@@ -8,7 +8,9 @@ use parallelogram\images\delivery\Delivery;
 use parallelogram\images\delivery\DeliveryOutcome;
 use parallelogram\images\delivery\DeliveryPorts;
 use parallelogram\images\delivery\GenerationFailedException;
+use parallelogram\images\delivery\MakeResult;
 use parallelogram\images\delivery\StorageFailedException;
+use parallelogram\images\delivery\VariantMaker;
 use parallelogram\images\delivery\VariantRequestHandler;
 use parallelogram\images\sizing\Box;
 use parallelogram\images\sizing\Encoding;
@@ -65,6 +67,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(VariantHasher::class)]
 #[UsesClass(VariantPath::class)]
 #[UsesClass(VariantPlanner::class)]
+#[UsesClass(MakeResult::class)]
+#[UsesClass(VariantMaker::class)]
 #[Group('unit')]
 final class VariantRequestHandlerTest extends TestCase
 {

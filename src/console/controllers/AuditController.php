@@ -1,78 +1,52 @@
 <?php
 
+declare(strict_types=1);
+
 namespace parallelogram\images\console\controllers;
 
+use craft\console\Controller;
+use Override;
+use parallelogram\images\craft\WarmingCommands;
 use parallelogram\images\Plugin;
-use yii\console\Controller;
-use yii\console\ExitCode;
-use yii\helpers\Console;
 
 /**
- * Reports variant coverage without generating anything — a read-only check that
- * every assigned transform exists on disk. Use as a pre-deploy guard: exits
- * non-zero when variants are missing, so CI can fail the build.
+ * Counts the variants every image is missing without making any, and fails
+ * when there are some, so it can guard a deploy.
  *
- *   php craft p-images/audit
- *   php craft p-images/audit --field=preview --matrix=card
+ *     php craft p-images/audit
+ *     php craft p-images/audit --volume=products --size-set=card
+ *
+ * @api
  */
-class AuditController extends Controller
+final class AuditController extends Controller
 {
-    public $defaultAction = 'index';
+    use PrintsOutcomeTrait;
 
-    /** @var string|null Limit to a single Asset field handle. */
-    public ?string $field = null;
+    /**
+     * @var string|null Only check this size set's variants.
+     */
+    public ?string $sizeSet = null;
 
-    /** @var string|null Limit to a single matrix handle. */
-    public ?string $matrix = null;
-
-    /** @var string|null Limit to a single volume handle. */
+    /**
+     * @var string|null Only images in the volume with this handle.
+     */
     public ?string $volume = null;
 
     public function actionIndex(): int
     {
-        $this->stdout("Auditing variant coverage (no generation)...\n\n");
+        $commands = new WarmingCommands(Plugin::getInstance()?->warming());
 
-        $report = Plugin::getInstance()->warmer->audit($this->field, $this->matrix, $this->volume);
-        // (audit() caches the report so the CP coverage view reflects a CLI run too.)
-
-        if ([] === $report) {
-            $this->stdout("Nothing assigned to audit.\n");
-            return ExitCode::OK;
-        }
-
-        $missingTotal = 0;
-
-        foreach ($report as $matrix => $row) {
-            $missingTotal += $row['missing'];
-            $complete     = 0 === $row['missing'];
-
-            $this->stdout(
-                sprintf(
-                    "%-12s %d/%d assets fully warmed, %d/%d transforms missing\n",
-                    $matrix,
-                    $row['covered'],
-                    $row['assets'],
-                    $row['missing'],
-                    $row['transforms'],
-                ),
-                $complete ? Console::FG_GREEN : Console::FG_YELLOW,
-            );
-        }
-
-        $this->stdout("\n");
-
-        if (0 === $missingTotal) {
-            $this->stdout("All variants present — no warming needed.\n", Console::FG_GREEN);
-            return ExitCode::OK;
-        }
-
-        $this->stdout("{$missingTotal} transform(s) missing — run p-images/warm.\n", Console::FG_YELLOW);
-
-        return ExitCode::UNSPECIFIED_ERROR;
+        return $this->print($commands->audit($this->volume, $this->sizeSet, $this->progress(...)));
     }
 
+    /**
+     * @param string $actionID
+     *
+     * @return list<string>
+     */
+    #[Override]
     public function options($actionID): array
     {
-        return array_merge(parent::options($actionID), ['field', 'matrix', 'volume']);
+        return [...parent::options($actionID), 'sizeSet', 'volume'];
     }
 }
