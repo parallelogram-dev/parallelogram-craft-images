@@ -21,6 +21,7 @@
 - New installs start with no size sets; the prototype's seeded sets were specific to one site.
 
 ### Removed
+- The bundled 1998 HP sRGB profile, replaced by the ICC's freely redistributable sRGB v4 preference profile (see THIRD-PARTY-NOTICES.md).
 - Moving variants when an asset is moved or renamed, which UID-based paths make unnecessary.
 - Writing variants into Craft's transform paths.
 - The "fast generate" setting, which is replaced by the backend choice in a later step.

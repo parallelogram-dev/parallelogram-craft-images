@@ -30,7 +30,7 @@ use function intdiv;
  */
 final readonly class ImagickGenerator implements VariantGeneratorInterface
 {
-    public const string SRGB_PROFILE = __DIR__ . '/../resources/icc/sRGB-IEC61966-2.1.icc';
+    public const string SRGB_PROFILE = __DIR__ . '/../resources/icc/sRGB_v4_ICC_preference.icc';
 
     public function __construct(
         private SourceFileInterface $files,
