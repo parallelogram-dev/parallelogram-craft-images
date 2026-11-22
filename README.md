@@ -124,4 +124,4 @@ Each test runs in a rolled-back transaction, project config is never written bac
 
 ## Licence
 
-The Craft Licence. The plugin is free to use for now, and the terms may change from the first paid release. See [LICENSE.md](LICENSE.md).
+The Craft Licence. See [LICENSE.md](LICENSE.md).

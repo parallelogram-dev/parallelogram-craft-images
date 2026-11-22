@@ -1,5 +1,11 @@
 # Release Notes for Parallelogram Images
 
+## Unreleased
+
+### Changed
+- `LICENSE.md` no longer says the plugin is free to use for now; it is the plain Craft Licence.
+- CI installs craft-kit from Packagist rather than the local path repository the lock file records.
+
 ## 0.1.1 - 2026-11-23
 
 ### Fixed
