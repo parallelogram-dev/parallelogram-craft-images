@@ -1,8 +1,9 @@
 # Release Notes for Parallelogram Images
 
-## Unreleased
+## 0.1.2 - 2026-11-23
 
 ### Changed
+- Requires craft-kit 0.2, the version Parallelogram SEO, Cache, Nav and Critical CSS need, so they can be installed together.
 - `LICENSE.md` no longer says the plugin is free to use for now; it is the plain Craft Licence.
 - CI installs craft-kit from Packagist rather than the local path repository the lock file records, and installs libvips so the libvips generator is tested too.
 

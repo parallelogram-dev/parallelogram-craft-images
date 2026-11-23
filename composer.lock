@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7e709d37177c1fbf32bf5d74b0772942",
+    "content-hash": "74b5a4eb5fc024dcfd0882acc627bc71",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -3459,7 +3459,7 @@
             "dist": {
                 "type": "path",
                 "url": "../parallelogram-craft-kit",
-                "reference": "074647e174c8f871b3ad401634f316c8d20bc80c"
+                "reference": "7cbd3104f8cc16ade414bf2ae29903c1002bb93c"
             },
             "require": {
                 "craftcms/cms": "^5.6",
@@ -3512,7 +3512,7 @@
                     "homepage": "https://parallelogram.com.au"
                 }
             ],
-            "description": "Shared contracts and Craft adapters for Parallelogram's Craft CMS plugins: cache-tag collection and replay, tag invalidation, site URL providers, and element method registration.",
+            "description": "Shared contracts, Craft adapters and a control panel UI kit for Parallelogram's Craft CMS plugins: cache-tag collection and replay, tag invalidation, site URL providers, element method registration, and shared CP controls.",
             "keywords": [
                 "cache",
                 "craftcms",

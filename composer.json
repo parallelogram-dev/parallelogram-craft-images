@@ -25,7 +25,7 @@
     "require": {
         "php": "^8.3",
         "craftcms/cms": "^5.6",
-        "parallelogram/craft-kit": "^0.1 || *@dev"
+        "parallelogram/craft-kit": "^0.2 || *@dev"
     },
     "require-dev": {
         "carthage-software/mago": "^1.59",
