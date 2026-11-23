@@ -1,6 +1,14 @@
 # Release Notes for Parallelogram Images
 
-## 0.1.0 - Unreleased
+## 0.1.1 - 2026-11-23
+
+### Fixed
+- ImageMagick now applies the AVIF quality. ImageMagick 7 reads AVIF quality from the wand rather than the image, so AVIFs were made at ImageMagick's own default whatever the setting said.
+
+### Changed
+- AVIF's default quality is 50 (was 60). It matches the AVIFs sites have been getting from ImageMagick: across six IF Architecture photos, libvips at 50 averaged 3% smaller at the same SSIM, where 60 would have been 43% larger. Existing AVIF variants keep their files; their URLs change with the quality, so they are made again as pages ask for them, or with `p-images/warm`.
+
+## 0.1.0 - 2026-11-18
 
 ### Added
 - Size sets: an optional aspect ratio, a ladder of widths, a mode, formats and the `sizes` attribute, replacing per-variant "matrices". Widths an image can't fill are skipped, so nothing is upscaled.

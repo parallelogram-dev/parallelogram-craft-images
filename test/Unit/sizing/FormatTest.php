@@ -24,7 +24,7 @@ final class FormatTest extends TestCase
     public static function formatProvider(): array
     {
         return [
-            'avif' => [Format::Avif, 60, false, 'image/avif'],
+            'avif' => [Format::Avif, 50, false, 'image/avif'],
             'jpg'  => [Format::Jpg, 82, true, 'image/jpeg'],
             'png'  => [Format::Png, 80, true, 'image/png'],
             'webp' => [Format::Webp, 80, false, 'image/webp'],

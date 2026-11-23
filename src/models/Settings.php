@@ -89,7 +89,7 @@ final class Settings extends Model
 
     /**
      * Encoder quality per format for the whole site. Formats left out use
-     * their defaults (AVIF 60, WebP 80, JPG 82, PNG 80).
+     * their defaults (AVIF 50, WebP 80, JPG 82, PNG 80).
      *
      * @var array<string, int>
      */

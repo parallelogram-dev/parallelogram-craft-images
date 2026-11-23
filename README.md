@@ -67,7 +67,7 @@ Utilities → Parallelogram Images queues the same work, and the Assets index ha
 
 ## Encoding
 
-Quality is set per format for the whole site (AVIF 60, WebP 80, JPG 82 by default; a size set can override it). **AVIF effort** (Settings, 0–9, default 3) is how hard the encoder works: higher is slower and gives smaller files. It applies to ImageMagick, libvips and GD, and imgproxy and Cloudflare ignore it. Effort changes the file, not the picture, so changing it leaves existing variants valid; run `p-images/rebuild` to apply it to them.
+Quality is set per format for the whole site (AVIF 50, WebP 80, JPG 82 by default; a size set can override it). **AVIF effort** (Settings, 0–9, default 3) is how hard the encoder works: higher is slower and gives smaller files. It applies to ImageMagick, libvips and GD, and imgproxy and Cloudflare ignore it. Effort changes the file, not the picture, so changing it leaves existing variants valid; run `p-images/rebuild` to apply it to them.
 
 Backends use different AVIF encoders and settings, so the same image at the same quality and effort is not byte-identical, or always the same size, between them. AVIF encoding dominates generation time: allow several seconds per large image on ImageMagick, far less with libvips.
 

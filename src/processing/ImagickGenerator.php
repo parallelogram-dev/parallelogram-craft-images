@@ -69,6 +69,7 @@ final readonly class ImagickGenerator implements VariantGeneratorInterface
 
         $image->setImageFormat(Format::Jpg === $format ? 'jpeg' : $format->value);
         $image->setImageCompressionQuality($quality);
+        $image->setCompressionQuality($quality);
 
         if (Format::Avif === $format) {
             $image->setOption('heic:speed', (string) $this->processing->avifSpeed());
