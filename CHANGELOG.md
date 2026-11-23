@@ -4,7 +4,7 @@
 
 ### Changed
 - `LICENSE.md` no longer says the plugin is free to use for now; it is the plain Craft Licence.
-- CI installs craft-kit from Packagist rather than the local path repository the lock file records.
+- CI installs craft-kit from Packagist rather than the local path repository the lock file records, and installs libvips so the libvips generator is tested too.
 
 ## 0.1.1 - 2026-11-23
 

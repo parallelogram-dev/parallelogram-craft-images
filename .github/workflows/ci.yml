@@ -20,11 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install libvips
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libvips42t64
+
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: xdebug
-          extensions: imagick
+          extensions: imagick, ffi
           tools: composer:v2
 
       - name: Use craft-kit from Packagist
