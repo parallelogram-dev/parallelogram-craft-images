@@ -20,16 +20,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install libvips
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libvips42t64
+
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: xdebug
-          extensions: imagick
+          extensions: imagick, ffi
           tools: composer:v2
+
+      - name: Use craft-kit from Packagist
+        run: composer config --unset repositories
 
       - name: Install locked dependencies
         if: matrix.dependencies == 'locked'
-        run: composer install --no-interaction --no-progress
+        run: |
+          composer update parallelogram/craft-kit --no-interaction --no-progress --no-install
+          composer install --no-interaction --no-progress
 
       - name: Install latest dependencies
         if: matrix.dependencies == 'latest'

@@ -1,8 +1,5 @@
 # The Craft License
 
-> **Free for now.** This plugin is free to use while it is being developed.
-> The terms may change from the first paid release.
-
 Copyright © Parallelogram
 
 Permission is hereby granted to any person obtaining a copy of this software
