@@ -23,7 +23,7 @@ enum Format: string
     public function defaultQuality(): int
     {
         if (self::Avif === $this) {
-            return 60;
+            return 50;
         }
 
         return self::Jpg === $this ? 82 : 80;

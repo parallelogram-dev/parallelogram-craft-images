@@ -30,6 +30,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 use function file_get_contents;
+use function strlen;
 
 /**
  * Runs the real ImageMagick extension on small in-memory images.
@@ -78,7 +79,7 @@ final class ImagickGeneratorTest extends TestCase
     /**
      * @throws GenerationFailedException
      */
-    private static function avif(int $effort): string
+    private static function avif(int $effort, int $quality = 80): string
     {
         return (new ImagickGenerator(
             new StaticSourceFile(ImageFactory::noise(64, height: 64)),
@@ -88,7 +89,7 @@ final class ImagickGeneratorTest extends TestCase
                 width: 64,
                 height: 64,
             ),
-            self::file(new Box(64, null, Mode::Crop), Format::Avif),
+            self::file(new Box(64, null, Mode::Crop), Format::Avif, $quality),
         );
     }
 
@@ -103,10 +104,10 @@ final class ImagickGeneratorTest extends TestCase
         return [$image->getImageWidth(), $image->getImageHeight()];
     }
 
-    private static function file(Box $box, Format $format): VariantFile
+    private static function file(Box $box, Format $format, int $quality = 80): VariantFile
     {
         return new VariantFile(
-            new Variant('card', $box, $format, quality: 80),
+            new Variant('card', $box, $format, quality: $quality),
             '0123456789abcdef',
             "asset/variant/x.{$format->value}",
         );
@@ -205,6 +206,27 @@ final class ImagickGeneratorTest extends TestCase
             );
 
         static::assertTrue(self::pixel($output, x: 25, y: 25)->isPixelSimilar(new ImagickPixel($colour), fuzz: 0.1));
+    }
+
+    /**
+     * ImageMagick 7 ignores the image's own compression quality for AVIF
+     * and reads the wand's, so this fails if only one of them is set.
+     *
+     * @throws GenerationFailedException
+     */
+    #[Test]
+    public function encodesAvifAtTheVariantsQuality(): void
+    {
+        static::assertLessThan(
+            strlen(self::avif(
+                effort: 4,
+                quality: 90,
+            )),
+            strlen(self::avif(
+                effort: 4,
+                quality: 20,
+            )),
+        );
     }
 
     /**
