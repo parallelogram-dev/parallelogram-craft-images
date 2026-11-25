@@ -6,6 +6,7 @@ namespace parallelogram\images\sizing;
 
 use function array_unique;
 use function array_values;
+use function count;
 use function preg_match;
 use function sort;
 use function trim;
@@ -105,8 +106,11 @@ final readonly class SizeSet
 
     /**
      * The ladder widths a source of the given size can fill. Images are never
-     * upscaled: widths the source can't fill are dropped, and when none fit,
-     * the widest box the source can fill is used on its own.
+     * upscaled: widths the source can't fill are dropped. When some are
+     * dropped and the widest box the source can fill is more than 10% wider
+     * than the last width kept, that box tops the ladder, so a source that
+     * falls between two widths is still offered at its full size. When no
+     * width fits, it is used on its own.
      *
      * @return non-empty-list<int>
      */
@@ -114,6 +118,7 @@ final readonly class SizeSet
     {
         $limit   = $this->fit->widestFor($sourceWidth, $sourceHeight);
         $fitting = [];
+        $widest  = 0;
 
         foreach ($this->widths as $width) {
             if ($width > $limit) {
@@ -121,8 +126,17 @@ final readonly class SizeSet
             }
 
             $fitting[] = $width;
+            $widest    = $width;
         }
 
-        return [] === $fitting ? [$limit] : $fitting;
+        if ([] === $fitting) {
+            return [$limit];
+        }
+
+        if (count($fitting) < count($this->widths) && ($limit * 10) > ($widest * 11)) {
+            $fitting[] = $limit;
+        }
+
+        return $fitting;
     }
 }

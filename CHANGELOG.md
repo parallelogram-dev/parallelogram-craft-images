@@ -1,5 +1,10 @@
 # Release Notes for Parallelogram Images
 
+## 0.1.3 - 2026-11-25
+
+### Fixed
+- A source that falls between two of a size set's widths is offered at its full size. Widths the source can't fill are still dropped, but when the source is more than 10% wider than the last width kept, a variant at the source's own width now tops the `srcset`. Before, a 1001px photo in a set of 768, 1280 and 1920 got only the 768px variant, so it looked soft on high-density screens where the old Craft transforms had served the original. Existing variants keep their files; the new top width is made as pages ask for it, or with `p-images/warm`.
+
 ## 0.1.2 - 2026-11-23
 
 ### Changed

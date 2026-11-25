@@ -45,7 +45,7 @@ final class SizeSetTest extends TestCase
         return [
             'source fills every width'   => [3000, 3000, [480, 960, 1440]],
             'source too narrow'          => [1000, 3000, [480, 960]],
-            'source too short to crop'   => [3000, 600, [480]],
+            'source too short to crop'   => [3000, 600, [480, 600]],
             'source smaller than ladder' => [300, 300, [300]],
         ];
     }
@@ -71,6 +71,21 @@ final class SizeSetTest extends TestCase
             'no widths' => [[], 'needs at least one width'],
             'zero'      => [[0, 480], 'has a width of 0px'],
             'too wide'  => [[480, 10_001], 'has a width of 10001px'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{int, list<int>}>
+     */
+    public static function sourceWidthProvider(): array
+    {
+        return [
+            'between two steps'          => [1200, [480, 960, 1200]],
+            'just past a step'           => [1000, [480, 960]],
+            'exactly a step'             => [960, [480, 960]],
+            'ten percent past a step'    => [1056, [480, 960]],
+            'just over ten percent past' => [1057, [480, 960, 1057]],
+            'wider than every step'      => [3000, [480, 960, 1440]],
         ];
     }
 
@@ -145,6 +160,18 @@ final class SizeSetTest extends TestCase
     public function sortsWidthsAndRemovesRepeats(): void
     {
         static::assertSame([480, 960, 1440], SizeSetFactory::make(widths: [960, 480, 1440, 480])->widths);
+    }
+
+    /**
+     * @param list<int> $expected
+     */
+    #[DataProvider('sourceWidthProvider')]
+    #[Test]
+    public function topsTheLadderWithTheSourceWidthWhenItIsMeaningfullyWider(int $sourceWidth, array $expected): void
+    {
+        $sizeSet = SizeSetFactory::make(widths: [480, 960, 1440]);
+
+        static::assertSame($expected, $sizeSet->widthsFor($sourceWidth, sourceHeight: 2000));
     }
 
     #[Test]
